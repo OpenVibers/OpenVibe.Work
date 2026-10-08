@@ -27,15 +27,22 @@ function decode(text) {
 }
 
 /** The description as plain text: no tags, no script or style content, whitespace collapsed. */
-function stripHtml(html) {
-    let s = String(html == null ? '' : html);
+function stripOnce(s) {
     s = s.replace(/<!--[\s\S]*?-->/g, ' ');
     // A script or style element's content is code, not prose; drop it with its tags.
     s = s.replace(/<(script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ');
     // Block boundaries become a space so words either side do not run together.
     s = s.replace(/<\/?(br|p|div|li|ul|ol|tr|td|th|h[1-6]|section|article|header|footer|blockquote|pre|figure|hr)\b[^>]*>/gi, ' ');
     s = s.replace(/<[^>]*>/g, ' ');
-    s = decode(s);
+    return decode(s);
+}
+
+function stripHtml(html) {
+    let s = stripOnce(String(html == null ? '' : html));
+    // Some boards send their HTML escaped (Arbeitnow: "&lt;div class=&quot;…&quot;&gt;&lt;p&gt;…"): one decode brings the
+    // markup back, so it is stripped a second time. Two passes at most: a third layer is not a description.
+    // Only real HTML tags count as markup coming back; "&lt;ok&gt;" in prose stays the text "ok".
+    if (/<\/?(p|div|span|br|ul|ol|li|a|b|i|em|strong|h[1-6]|table|tr|td|section|article|blockquote|pre|code|img|hr|script|style)\b[^>]*>/i.test(s)) s = stripOnce(s);
     // An unmatched '<' left by broken markup is not something a listing should show.
     s = s.replace(/<[^>]*$/g, ' ').replace(/[<>]/g, ' ');
     return s.replace(/\s+/g, ' ').trim();

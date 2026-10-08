@@ -80,6 +80,8 @@ const DAY = 86_400_000;
             assert.strictEqual(stripHtml('<style>p{color:red}</style><p>real</p>'), 'real');
             assert.strictEqual(stripHtml('<script>alert(1)</script>'), '');
             assert.strictEqual(stripHtml(null), '');
+            // Arbeitnow sends some descriptions as escaped HTML: the markup must not show up as words.
+            assert.strictEqual(stripHtml('&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;GitLab is here.&lt;/p&gt;&lt;script&gt;x()&lt;/script&gt;'), 'GitLab is here.');
             // A doubly-encoded tag decodes to text and is then dropped, never re-formed into markup.
             assert.ok(!stripHtml('&lt;script&gt;alert(1)&lt;/script&gt;').includes('<'));
             assert.strictEqual(excerpt('<p>short</p>'), 'short');
