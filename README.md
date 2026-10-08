@@ -109,6 +109,27 @@ test:pg` runs the same suite through PostgreSQL and PgBouncer (see [.github/work
 - Register the service and its capabilities in **OpenVibe.Contracts** (`contracts-service: work` in CI) and with
   **OpenVibe.Services** before the first deploy.
 
+## Account export and deletion
+
+A person's account at OpenVibe.Network can be exported and deleted, and every service holding their rows answers its
+part (ADR-033). Work receives `network.account.export_requested` and `network.account.deleted` at `POST /internal/events`
+(loopback only) — the one table is mapped in [server/identity/account-data.js](server/identity/account-data.js), and the
+boot-time subscriptions are created by [server/events-consumer.js](server/events-consumer.js):
+
+- **Exported:** the searches a person saved (`saved_searches.json`), pushed to
+  `POST /internal/account-exports/:id/parts` with this service's own token. Nothing here is a secret — Work stores no
+  token, key or credential.
+- **Erased:** a saved search is the person's own and nothing anyone else's page hangs under it, so it is deleted whole
+  and nothing is kept. Work then confirms with `POST /internal/account-deletions/:id/confirmations` and the counts.
+- **Anonymized:** nothing. There is no row Work keeps that was written by this person for another person to read.
+
+The listings (`work_listings`) and the per-source fetch record (`work_source_fetches`) hold no person's rows: neither
+has a subject column, so neither is exported nor erased.
+
+Environment: `WORK_EVENTS_SECRET` (comma-separated for rotation, 32+ characters each; unset makes the route answer
+503), `WORK_EVENTS_URL` (or `EVENTS_URL`) is where the two subscriptions are created at boot (off when unset), and
+`WORK_EVENTS_ENDPOINT` overrides the loopback endpoint; `WORK_EVENTS_SUBSCRIBE=0` turns the boot-time subscription off.
+
 ## Security (threat notes)
 
 Reporting a vulnerability: [SECURITY.md](SECURITY.md).
@@ -134,6 +155,6 @@ Part of the [OpenVibe network](https://openvibe.network). Built in the open by [
 
 <!-- versions:start -->
 - openvibe-contracts: v0.116.0
-- openvibe-sdk: v0.35.2
+- openvibe-sdk: v0.36.0
 - openvibe-shared: v2.15.0
 <!-- versions:end -->

@@ -7,11 +7,11 @@
   "port": "4960",
   "domain": "openvibe.work",
   "contracts": "openvibe-contracts v0.115.0",
-  "sdk": "openvibe-sdk v0.35.2",
+  "sdk": "openvibe-sdk v0.36.0",
   "shared": "openvibe-shared v2.14.0",
   "packages": [
     "openvibe-contracts v0.115.0",
-    "openvibe-sdk v0.35.2",
+    "openvibe-sdk v0.36.0",
     "openvibe-shared v2.14.0"
   ],
   "summary": "OpenVibe.Work gathers job listings from three public job boards (Arbeitnow, Remotive, RemoteOK) under their terms — the source is named and the original listing is linked on every page, and only a short excerpt is kept. It searches them with facets, shows one listing with a schema.org JobPosting whose url is the original, and lets a signed-in person keep a search and see what is new since they last looked. Public reads need no token.",
@@ -25,7 +25,8 @@
     "The pages: home, /jobs, /jobs/:id, /saved, /sources, /docs and /updates — server-rendered, complete without JavaScript",
     "Discovery: a sitemap carrying the newest listings, llms.txt, robots.txt (saved searches excluded) and JSON-LD",
     "Per-caller limits on the search and on saved-search writes; problem+json errors with stable codes",
-    "Tests: the ingest, the search, the pages and the saved searches against stand-in boards, on a temp PGlite database with a mock Network"
+    "Tests: the ingest, the search, the pages and the saved searches against stand-in boards, on a temp PGlite database with a mock Network",
+    "Account export and deletion (ADR-033): the searches a person saved are exported to OpenVibe.Network on network.account.export_requested and deleted whole on network.account.deleted, with the counts confirmed back; the two Events topics are subscribed at boot (server/identity/account-data.js)"
   ],
   "notYet": [
     "The agent pillar: drafting, tailoring and tracking an application with the person's approval at each step",

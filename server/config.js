@@ -54,6 +54,16 @@ function load(env = process.env) {
         },
         cookies: { secure: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProduction },
 
+        // OpenVibe.Events → this service (server/events-consumer.js). The secret signs a delivery (comma-separated
+        // for rotation, 32+ characters each); unset turns POST /internal/events off (503). The url is where the
+        // network.account.export_requested and network.account.deleted subscriptions are created at boot, off when
+        // unset. Both topics are ADR-033: account export and deletion (server/identity/account-data.js).
+        events: {
+            secrets: String(env.WORK_EVENTS_SECRET || '').split(',').map((x) => x.trim()).filter(Boolean),
+            url: trim(env.WORK_EVENTS_URL || env.EVENTS_URL || ''),
+            endpoint: env.WORK_EVENTS_ENDPOINT || '',
+        },
+
         // The public job boards the ingest reads (server/jobs/sources.js). The base URLs are configurable so a
         // test points them at a stand-in server; nothing else in the service ever fetches a URL, and never one a
         // caller typed. Their terms are quoted in the manifest that describes each source, and applied on every
