@@ -34,6 +34,8 @@ async function fetchJson(url, { fetchImpl, timeoutMs, userAgent }) {
     try { return JSON.parse(text); } catch { throw new Error('the board answered with something that is not JSON'); }
 }
 
+const TICK_MS = 3_600_000;
+
 function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console }) {
     const timers = new Map();
     let running = false;
@@ -70,13 +72,23 @@ function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console }
         }
     }
 
-    /** Every source, then the expiry sweep: a listing no board has shown for the retention window goes. */
-    async function runAll() {
+    /**
+     * Every source, then the expiry sweep: a listing no board has shown for the retention window goes. With
+     * { onlyDue: true } (the timer's way) a source read less than the interval ago is left alone, so a restart or a
+     * deploy never reads a board again early: Remotive asks for about four reads a day at most.
+     */
+    async function runAll({ onlyDue = false } = {}) {
         if (running) return [];
         running = true;
         try {
             const out = [];
-            for (const source of sources.SOURCES) out.push({ source: source.id, ...(await runSource(source.id)) });
+            const last = onlyDue ? await store.sourceFetches(s) : new Map();
+            for (const source of sources.SOURCES) {
+                const prev = last.get(source.id);
+                const age = prev && prev.started_at ? s.now() - Date.parse(prev.started_at) : Infinity;
+                if (onlyDue && age < config.ingest.intervalMs) { out.push({ source: source.id, skipped: 'not_due' }); continue; }
+                out.push({ source: source.id, ...(await runSource(source.id)) });
+            }
             try {
                 const gone = await store.expire(s, config.ingest.retentionDays, s.now());
                 if (gone) log.log(`[Ingest] expired ${gone} listings not seen for ${config.ingest.retentionDays} days`);
@@ -88,17 +100,16 @@ function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console }
     }
 
     /**
-     * Start the timers: one per source, so a slow board delays only itself. The first run waits a few seconds so it
-     * never competes with the process starting up or with a deploy's readiness check.
+     * Start the timer: one tick an hour (or each interval, if shorter) reads the sources that are due and sweeps
+     * expired listings. The first tick waits a few seconds so it never competes with the process starting up or with
+     * a deploy's readiness check, and it too reads only what is due.
      */
     function start() {
         if (!config.ingest.enabled || timers.size) return false;
-        for (const source of sources.SOURCES) {
-            const timer = setInterval(() => { runSource(source.id).catch(() => {}); }, config.ingest.intervalMs);
-            timer.unref();
-            timers.set(source.id, timer);
-        }
-        const kick = setTimeout(() => { runAll().catch(() => {}); }, START_DELAY_MS);
+        const timer = setInterval(() => { runAll({ onlyDue: true }).catch(() => {}); }, Math.min(config.ingest.intervalMs, TICK_MS));
+        timer.unref();
+        timers.set('tick', timer);
+        const kick = setTimeout(() => { runAll({ onlyDue: true }).catch(() => {}); }, START_DELAY_MS);
         kick.unref();
         timers.set('start', kick);
         log.log(`[Ingest] on: ${sources.ids().join(', ')} every ${Math.round(config.ingest.intervalMs / 3_600_000)}h`);

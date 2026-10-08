@@ -141,6 +141,15 @@ const DAY = 86_400_000;
             t.boards.reset();
         });
 
+        await check('a source read less than the interval ago is not read again on a restart (Remotive: about four reads a day)', async () => {
+            await ingest.runAll();
+            const before = t.boards.requests.length;
+            const out = await ingest.runAll({ onlyDue: true });
+            assert.ok(out.every((o) => o.skipped === 'not_due'), 'every source was read just now, so none is due');
+            assert.strictEqual(t.boards.requests.length, before, 'no board was called');
+            t.boards.reset();
+        });
+
         await check('the ingest is off unless WORK_INGEST=on, so a test or a development run reads no board', async () => {
             assert.strictEqual(t.config.ingest.enabled, false);
             assert.strictEqual(ingest.start(), false);
@@ -149,7 +158,7 @@ const DAY = 86_400_000;
                 assert.strictEqual(other.config.ingest.enabled, true);
                 assert.strictEqual(other.config.ingest.intervalMs, 6 * 3600_000);
                 assert.strictEqual(other.ctx.ingest.start(), true);
-                assert.strictEqual(other.ctx.ingest.timers.size, 4, 'one timer per source plus the first run');
+                assert.strictEqual(other.ctx.ingest.timers.size, 2, 'one hourly tick plus the first run');
                 other.ctx.ingest.stop();
             } finally { await other.close(); }
         });
