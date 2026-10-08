@@ -47,15 +47,26 @@ function provenance(row, source) {
     return html`<p class="job-provenance"><span class="muted">Listing from</span> ${sourceLink(row, source)}${row.posted_at ? html` <span class="muted">· posted ${dateWords(row.posted_at)}</span>` : ''}</p>`;
 }
 
-/** One listing in a list: title, who and where, the excerpt, the tags, and the link back to the board. */
+/** A company's initial on a tint picked from its name: the same company always gets the same tile. */
+function initialTile(company) {
+    const name = String(company || '?').trim();
+    let h = 0;
+    for (const ch of name) h = (h * 31 + ch.codePointAt(0)) % 360;
+    return html`<span class="job-logo" style="--h:${h}" aria-hidden="true">${(name[0] || '?').toUpperCase()}</span>`;
+}
+
+/** One listing in a list, as a card: who, what and where at a glance, two lines of the excerpt, and the link back. */
 function listingItem(row, { source }) {
     const l = meta(row);
     return html`<li class="job-item" id="${l.id}">
+${initialTile(l.company)}
+<div class="job-main">
 <h3 class="job-title"><a href="/jobs/${l.id}">${l.title}</a></h3>
-<p class="job-meta"><span class="job-company">${l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? html` · ${badge('Remote', 'ok')}` : ''}${l.job_type ? html` · <span class="job-type">${l.job_type}</span>` : ''}${l.salary ? html` · <span class="job-salary">${l.salary}</span>` : ''}</p>
+<p class="job-meta"><span class="job-company">${l.company}</span><span class="job-location">${l.location || 'Location not given'}</span></p>
+<p class="job-chips">${l.remote ? html`<span class="chip chip-ok">Remote</span>` : ''}${l.job_type ? html`<span class="chip">${l.job_type}</span>` : ''}${l.salary ? html`<span class="chip chip-pay">${l.salary}</span>` : ''}${l.tags.slice(0, 3).map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>
 <p class="job-excerpt">${l.excerpt}</p>
-${l.tags.length ? html`<ul class="job-tags">${l.tags.slice(0, 8).map((t) => html`<li>${t}</li>`)}</ul>` : ''}
 ${provenance(row, source)}
+</div>
 </li>`;
 }
 
