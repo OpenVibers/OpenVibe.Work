@@ -55,7 +55,7 @@ const PRIVATE = ['/auth/', '/api/'];
             for (const p of ['/auth/']) assert.ok(!r.text.includes(`https://openvibe.work${p}`), `private path in llms.txt: ${p}`);
         });
 
-        await check('llms-full.txt: 200 text/plain, the site title, and every page the sitemap lists', async () => {
+        await check('llms-full.txt: 200 text/plain, the site title, and every page the sitemap lists that is the site\'s own', async () => {
             const r = await t.get('/llms-full.txt');
             assert.strictEqual(r.status, 200);
             assert.match(r.headers.get('content-type'), /^text\/plain/);
@@ -64,8 +64,12 @@ const PRIVATE = ['/auth/', '/api/'];
             const sitemap = await t.get('/sitemap.xml');
             const locs = [...sitemap.text.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
             assert.ok(locs.length >= 2, `sitemap too small: ${locs.length}`);
-            for (const loc of locs) assert.ok(r.text.includes(loc), `llms-full.txt is missing ${loc}`);
+            // The site's own pages are described in full. A listing URL is in the sitemap (so a crawler follows it to
+            // the board) but deliberately not in llms-full.txt: there is no full text here to give, only an excerpt.
+            const own = locs.filter((l) => !/^https:\/\/openvibe\.work\/jobs\/job_/.test(l));
+            for (const loc of own) assert.ok(r.text.includes(loc), `llms-full.txt is missing ${loc}`);
             assert.ok(r.text.includes('URL: https://openvibe.work/updates\n'), 'no /updates entry');
+            assert.ok(r.text.includes('https://openvibe.work/jobs'), 'the listings are not named');
             for (const p of PRIVATE) assert.ok(!r.text.includes(`https://openvibe.work${p}`), `private path in llms-full.txt: ${p}`);
         });
 

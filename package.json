@@ -1,12 +1,13 @@
 {
   "name": "openvibe-work",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "OpenVibe.Work — Find work, with an agent on your side.",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "NODE_ENV=development node server/index.js",
+    "ingest": "node scripts/ingest.js",
     "test": "node test/run.js",
     "test:pg": "WORK_TEST_STORE=pg node test/run.js"
   },

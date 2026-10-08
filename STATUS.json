@@ -1,8 +1,8 @@
 {
-  "stage": "skeleton",
+  "stage": "beta",
   "code": true,
   "wave": "W20",
-  "plan": "OpenVibe.Work starts from the OpenVibe service skeleton; the product's own plan is written here when it is",
+  "plan": "Job listings gathered from open boards with their provenance, search and saved searches; the agent pillar comes next.",
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9",
   "port": "4960",
   "domain": "openvibe.work",
@@ -14,21 +14,23 @@
     "openvibe-sdk v0.35.2",
     "openvibe-shared v2.14.0"
   ],
-  "summary": "OpenVibe.Work — Find work, with an agent on your side. A new OpenVibe service on the shared skeleton, not deployed yet: sign-in with OpenVibe.Network (OAuth 2 + PKCE, httpOnly session cookies), server-rendered pages through the OpenVibe Frame, the /api/v1 mount with per-caller limits, crawl artifacts, PostgreSQL migrations applied at boot, the nginx and systemd deploy files and a test suite on PGlite with a mock Network.",
+  "summary": "OpenVibe.Work gathers job listings from three public job boards (Arbeitnow, Remotive, RemoteOK) under their terms — the source is named and the original listing is linked on every page, and only a short excerpt is kept. It searches them with facets, shows one listing with a schema.org JobPosting whose url is the original, and lets a signed-in person keep a search and see what is new since they last looked. Public reads need no token.",
   "works": [
-    "Sign-in with OpenVibe.Network (PKCE S256, server-side code exchange, httpOnly session cookies)",
-    "Server-rendered pages: the home page and /updates, through the OpenVibe Frame, complete without JavaScript",
-    "Crawl artifacts: robots.txt, sitemap.xml, llms.txt, llms-full.txt and the home page's JSON-LD",
-    "The API mount at /api/v1 with the problem+json error shape, the per-address limits and the per-caller limits",
-    "Capability verification for app, agent and service tokens (audience openvibe.work) and for a person's own token",
-    "Truthful readiness (/api/ready: the database is required) and Prometheus metrics on loopback",
-    "PostgreSQL with migrations/NNNN_*.sql (openvibe-sdk/db); PGlite in development",
-    "Deploy files: deploy/nginx/openvibe.work.conf and deploy/systemd/openvibe-work.service",
-    "Tests on a temp PGlite database with an in-process mock of OpenVibe.Network"
+    "The ingest: three boards read on a timer (WORK_INGEST=on, off in tests and development), each with its own User-Agent, 15-second timeout, upsert by (source, source_id) and expiry after 30 days unseen",
+    "The listings: provenance kept and shown (source name, link to the original, when it was fetched), a short plain-text excerpt, never the full description",
+    "Search: /jobs?q=&remote=&type=&location= newest first, 30 a page with a cursor, facets for remote and job type",
+    "One listing: /jobs/:id with the board's fields, the excerpt, a 'Read the full listing on <source>' link and a JobPosting JSON-LD whose url is the original",
+    "Saved searches for a signed-in person, each with the count of listings new since they last looked; /saved is where that count is cleared",
+    "The API (/api/v1): jobs, one job, sources with their terms and last fetch, and saved searches",
+    "The pages: home, /jobs, /jobs/:id, /saved, /sources, /docs and /updates — server-rendered, complete without JavaScript",
+    "Discovery: a sitemap carrying the newest listings, llms.txt, robots.txt (saved searches excluded) and JSON-LD",
+    "Per-caller limits on the search and on saved-search writes; problem+json errors with stable codes",
+    "Tests: the ingest, the search, the pages and the saved searches against stand-in boards, on a temp PGlite database with a mock Network"
   ],
   "notYet": [
-    "The product itself: its tables and migrations, its capabilities, its routes in server/http/api.js and its pages in server/http/pages.js",
-    "Its service and capability manifests in openvibe-contracts (contracts-service is work)",
+    "The agent pillar: drafting, tailoring and tracking an application with the person's approval at each step",
+    "Alerts: being told when a listing that fits appears — that comes through OpenVibe.Watch with the agent pillar; today a saved search is a repeatable search plus a count of what is new",
+    "Its service and capability manifests in openvibe-contracts (contracts-service is work): the API is live, but no <work>.jobs.* capability is registered yet, so app and agent tokens cannot call it",
     "A deployment: the service is not registered with OpenVibe.Services nor deployed by OpenVibe.Host"
   ],
   "capabilitiesRegistered": false,
@@ -37,9 +39,15 @@
   "placeholderInSites": false,
   "features": [
     "Network sign-in",
+    "job listings with provenance",
+    "search and facets",
+    "saved searches",
+    "sources and their terms",
+    "api",
     "server-rendered pages",
-    "api mount",
+    "discovery files",
     "limits and readiness",
+    "background ingest",
     "deploy files"
   ],
   "updated": "2026-10-08"

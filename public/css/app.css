@@ -42,3 +42,43 @@ form.inline { display: inline; }
 .page .sc-ic .ov-icon { --ovi-size: 28px !important; }
 button.sc-btn { background: transparent; }
 button.sc-btn.sc-primary { border: 0; }
+
+/* ── The listings ───────────────────────────────────────── */
+.job-search { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 8px; align-items: center; margin: 12px 0; }
+.job-search input, .job-search select { font: inherit; width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #0f1729); color: inherit; }
+.job-clear { font-size: .9rem; }
+@media (max-width: 720px) { .job-search { grid-template-columns: 1fr 1fr; } }
+.job-facets { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; margin: 8px 0 4px; font-size: .92rem; }
+.facets { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; align-items: baseline; }
+.facets .facet-label { color: var(--text-muted, #7386a3); font-size: .85rem; }
+.facets a { text-decoration: none; padding: 1px 8px; border: 1px solid var(--border, #1f2d47); border-radius: 999px; font-size: .85rem; }
+.facets li.on a { border-color: var(--accent, #3b82f6); color: var(--text-primary, #e6edf7); }
+.facet-n { color: var(--text-muted, #7386a3); }
+
+.job-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.job-item { border-top: 1px solid var(--border, #1f2d47); padding: 14px 0; }
+.job-item:first-child { border-top: 0; }
+.job-title { margin: 0 0 4px; }
+.job-meta { margin: 0 0 6px; color: var(--text-secondary, #96a7c2); font-size: .92rem; }
+.job-company { font-weight: 600; color: var(--text-primary, #e6edf7); }
+.job-excerpt { margin: 0 0 8px; max-width: 78ch; }
+.job-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; padding: 0; }
+.job-tags li { font-size: .78rem; border: 1px solid var(--border-light, #2c3d5c); border-radius: 999px; padding: 0 8px; color: var(--text-muted, #7386a3); }
+.job-provenance { margin: 0; font-size: .88rem; }
+.job-source { font-weight: 600; }
+.job-pager { display: flex; gap: 12px; align-items: center; margin: 18px 0 8px; }
+.job-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 16px 0; font-size: .92rem; }
+.job-facts dt { color: var(--text-secondary, #96a7c2); }
+.job-facts dd { margin: 0; overflow-wrap: anywhere; }
+.job-apply { margin: 16px 0; }
+.job-excerpt-block { max-width: 78ch; }
+
+.saved-list { list-style: none; margin: 12px 0; padding: 0; }
+.saved-item { border-top: 1px solid var(--border, #1f2d47); padding: 12px 0; }
+.saved-query { margin: 0 0 4px; }
+.saved-form fieldset { border: 1px solid var(--border, #1f2d47); border-radius: 10px; padding: 12px; }
+.saved-form legend { padding: 0 6px; color: var(--text-secondary, #96a7c2); }
+.saved-form label { display: inline-flex; flex-direction: column; gap: 3px; margin: 0 12px 10px 0; font-size: .88rem; color: var(--text-secondary, #96a7c2); }
+.saved-form input, .saved-form select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #0f1729); color: inherit; }
+.source-block { border-top: 1px solid var(--border, #1f2d47); padding-top: 12px; margin-top: 18px; }
+.source-links { margin: 6px 0 12px; }

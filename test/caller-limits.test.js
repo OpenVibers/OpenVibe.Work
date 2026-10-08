@@ -20,8 +20,14 @@ const READ = 'work.api.read';
     const rosa = t.network.addUser('rosa');
     const sam = t.network.addUser('sam');
 
-    await check('BUDGETS starts empty: the product declares its own expensive routes', () => {
-        assert.deepStrictEqual(BUDGETS, {});
+    await check('the product declares its own expensive routes in BUDGETS, and only those', () => {
+        // Searching the listings and saving a search: the two routes the product gives numbers of their own.
+        assert.deepStrictEqual(Object.keys(BUDGETS).sort(), ['work.jobs.search', 'work.saved_searches.write']);
+        for (const [name, own] of Object.entries(BUDGETS)) {
+            assert.ok(name.startsWith('work.'), name);
+            assert.ok(own.minute > 0 && own.hour >= own.minute, name);
+        }
+        assert.throws(() => t.ctx.limits.budget('work.thing.create'), /no budget named/);
     });
 
     await check('a read: 3 a minute per address, then 429 rate_limited with Retry-After; another address passes', async () => {

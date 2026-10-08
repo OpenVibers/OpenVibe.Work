@@ -14,7 +14,7 @@ const { gracefulStop } = require('openvibe-sdk/service');
 function createLifecycle({ server, ctx, exit, signals, timers = [] }) {
     return gracefulStop({
         name: 'OpenVibe.Work', server, deadlineExitCode: 0, exit, signals, deadlineMs: 10_000,
-        close: [() => { for (const t of timers) clearInterval(t); }, () => ctx.keys.client.stop(), () => ctx.s.close()],
+        close: [() => { for (const t of timers) clearInterval(t); }, () => ctx.ingest.stop(), () => ctx.keys.client.stop(), () => ctx.s.close()],
     });
 }
 
@@ -27,6 +27,7 @@ async function start() {
     });
     server.keepAliveTimeout = 65_000;
     ctx.keys.client.start();
+    ctx.ingest.start();
 
     createLifecycle({ server, ctx });
     return { server, ctx };

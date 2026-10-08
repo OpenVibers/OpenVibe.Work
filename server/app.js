@@ -30,6 +30,7 @@ const { createApi } = require('./http/api');
 const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
 const { createCallerLimits } = require('./http/caller-limits');
+const { createIngest } = require('./ingest');
 const { assetVersion, send } = require('./render/layout');
 const { html } = require('./render/html');
 
@@ -62,6 +63,9 @@ async function createApp(opts = {}) {
     const valkey = opts.valkey !== undefined ? opts.valkey : (config.valkey.url ? require('openvibe-sdk/valkey').createValkey({ url: config.valkey.url, prefix: config.valkey.prefix, log }) : null);
     ctx.valkey = valkey;
     ctx.limits = createCallerLimits({ config, now: opts.limitsNow || (() => Date.now()), registry: metrics.registry, log, enabled: opts.callerLimits !== false, valkey });
+    // The job-board ingest. Built here so a test can run one source against its stand-in server, but started only by
+    // server/index.js, and only when WORK_INGEST=on: nothing fetches a board in a test or a development run.
+    ctx.ingest = createIngest({ config, s, fetchImpl, log });
 
     app.use(contracts.http.middleware());
     app.use(helmet({

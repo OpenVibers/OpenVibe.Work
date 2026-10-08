@@ -24,6 +24,9 @@ const TAGLINE = 'Find work, with an agent on your side.';
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 // The product's own navigation: one entry per public page it serves.
 const NAV = [
+    { label: 'Jobs', href: '/jobs' },
+    { label: 'Sources', href: '/sources' },
+    { label: 'API', href: '/docs' },
     { label: 'What shipped', href: '/updates' },
 ];
 

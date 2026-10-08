@@ -31,8 +31,14 @@ function caller(req) {
  * not declared here. The empty object is the skeleton's starting point:
  *
  *   'work.thing.create': { minute: 6, hour: 60 },
+ *
+ * Searching the listings reads a local index, but it is the route a scraper would sit on and the one worth a
+ * number of its own; saving a search writes a row, so it gets a tighter one.
  */
-const BUDGETS = {};
+const BUDGETS = {
+    'work.jobs.search': { minute: 60, hour: 600 },
+    'work.saved_searches.write': { minute: 20, hour: 200 },
+};
 
 function createCallerLimits({ config, now = () => Date.now(), registry = null, log = console, enabled = true, valkey = null }) {
     const refused = registry

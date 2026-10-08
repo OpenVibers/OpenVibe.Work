@@ -10,10 +10,15 @@ process.env.WORK_API_RATE_LIMIT_PER_MIN = process.env.WORK_API_RATE_LIMIT_PER_MI
  *   const t = await boot();
  *   t.get(path, { as: user, bearer, json, form, headers, method, cookie })
  *   t.signIn(user) → cookie header value (work_at = a Network user token, as after /auth/callback)
- *   t.logs(), t.dbDump()
+ *   t.boards (the stand-in job boards: state, add, requests), t.logs(), t.dbDump()
+ *
+ * The three job-board base URLs always point at the stand-in (test/helpers/boards.js), so an ingest run in a test
+ * never touches the internet. The ingest itself is off unless a test asks for it: it runs when a test calls
+ * t.ctx.ingest.runSource(…) or t.ctx.ingest.runAll().
  */
 const http = require('http');
 const { startNetwork } = require('./mocks');
+const { startBoards } = require('./boards');
 
 const captured = [];
 for (const m of ['log', 'info', 'warn', 'error']) {
@@ -23,10 +28,12 @@ for (const m of ['log', 'info', 'warn', 'error']) {
 
 async function boot(opts = {}) {
     const network = await startNetwork(opts.network || {});
+    const boards = await startBoards();
     const env = {
         NODE_ENV: 'test', PORT: '0', BASE_URL: 'https://openvibe.work', TRUST_PROXY: '1',
         OV_NETWORK_URL: network.url, OV_NETWORK_INTERNAL_URL: network.url,
         OV_OAUTH_CLIENT_ID: 'work', OV_OAUTH_CLIENT_SECRET: 'work-secret', COOKIE_SECURE: 'false',
+        ...boards.env,
         ...(opts.env || {}),
     };
     for (const [k, v] of Object.entries(opts.env || {})) if (v === null) delete env[k];
@@ -66,12 +73,14 @@ async function boot(opts = {}) {
     }
 
     const t = {
-        base, network, config, ctx: built.ctx, get, signIn, dbDump,
+        base, network, boards, config, ctx: built.ctx, get, signIn, dbDump,
         logs: () => captured.join('\n'),
         async close() {
+            built.ctx.ingest.stop();
             await new Promise((r) => server.close(r));
             built.ctx.keys.client.stop();
             await testdb.close();
+            await boards.close();
             await network.close();
         },
     };

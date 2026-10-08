@@ -12,7 +12,10 @@ const { spawn } = require('child_process');
 const { measure, check, format } = require('openvibe-shared/perf-budget');
 
 // Budgets are set from the numbers measured on 2026-10-08 (the real ones, fresh database), rounded up with about 10%
-// headroom; file counts are the measured counts and external files stay at 0.
+// headroom; file counts are the measured counts and external files stay at 0. The CSS budget was raised from 16.5/4.1
+// when the listings arrived (the search form, a listing list and the source blocks in app.css): the measured page is
+// 18.2 KB raw / 4.3 KB brotli, still two stylesheets and no external file. The home page itself stayed inside its own
+// budget — the listings replace the skeleton's placeholder sections rather than adding to them.
 const BUDGETS = {
     htmlRawKB: 27.5,   // measured 24.9 (the home page: hero, features, steps, cta, JSON-LD)
     htmlBrotliKB: 6.9,   // 6.2
@@ -20,8 +23,8 @@ const BUDGETS = {
     jsRawKB: 264,   // 239.8
     jsBrotliKB: 62.5,   // 56.5
     cssFiles: 2,   // 2 (app.css + the cached /shared/showcase.css)
-    cssRawKB: 16.5,   // 15.0
-    cssBrotliKB: 4.1,   // 3.7
+    cssRawKB: 20.5,   // 15.0 before the listings; 18.2 after (the search form, the listing list, the source blocks)
+    cssBrotliKB: 4.8,   // 3.7 before; 4.3 after
     externalFiles: 0,   // 0
 };
 

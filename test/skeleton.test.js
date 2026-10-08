@@ -46,6 +46,17 @@ const rel = (p, dir) => path.relative(dir, p).split(path.sep).join('/');
 const text = (p) => fs.readFileSync(p, 'utf8');
 
 (async () => {
+    // This is the skeleton's own test. A service generated from the skeleton (this repository, once its tokens were
+    // replaced) carries no placeholders left to rewrite, so the generator can only copy it under its own name and
+    // there is nothing here to test. Say so and stop, rather than assert against a rewrite that cannot happen.
+    const pkgText = text(path.join(ROOT, 'package.json'));
+    if (!TOKEN_RE.test(pkgText)) {
+        // The label first, as the shared runner reads it: this file is listed with ○ and is not counted as passed.
+        process.stdout.write('the generator: skipped (this tree carries no skeleton placeholders left to rewrite: it is a generated service, not the skeleton itself)\n');
+        done();
+        return;
+    }
+
     const base = tmpDir('ov-new-service-');
     const dir = path.join(base, 'openvibe-sample');
     const printed = runGenerator(dir);
