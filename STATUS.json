@@ -8,11 +8,11 @@
   "domain": "openvibe.work",
   "contracts": "openvibe-contracts v0.122.1",
   "sdk": "openvibe-sdk v0.36.0",
-  "shared": "openvibe-shared v2.17.0",
+  "shared": "openvibe-shared v2.20.0",
   "packages": [
     "openvibe-contracts v0.122.1",
     "openvibe-sdk v0.36.0",
-    "openvibe-shared v2.17.0"
+    "openvibe-shared v2.20.0"
   ],
   "summary": "OpenVibe.Work gathers job listings from three public job boards (Arbeitnow, Remotive, RemoteOK) under their terms — the source is named and the original listing is linked on every page, and only a short excerpt is kept. It searches them with facets, shows one listing with a schema.org JobPosting whose url is the original, and lets a signed-in person keep a search and see what is new since they last looked. Public reads need no token.",
   "works": [
