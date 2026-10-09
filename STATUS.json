@@ -6,9 +6,9 @@
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9",
   "port": "4960",
   "domain": "openvibe.work",
-  "contracts": "openvibe-contracts v0.115.0",
+  "contracts": "openvibe-contracts v0.116.0",
   "sdk": "openvibe-sdk v0.36.0",
-  "shared": "openvibe-shared v2.14.0",
+  "shared": "openvibe-shared v2.17.0",
   "packages": [
     "openvibe-contracts v0.115.0",
     "openvibe-sdk v0.36.0",
@@ -51,5 +51,5 @@
     "background ingest",
     "deploy files"
   ],
-  "updated": "2026-10-08"
+  "updated": "2026-10-09"
 }
