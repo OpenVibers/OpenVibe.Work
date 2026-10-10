@@ -9,11 +9,11 @@
   "domain": "openvibe.work",
   "contracts": "openvibe-contracts v0.128.0",
   "sdk": "openvibe-sdk v0.37.2",
-  "shared": "openvibe-shared v2.21.2",
+  "shared": "openvibe-shared v3.0.0",
   "packages": [
     "openvibe-contracts v0.128.0",
     "openvibe-sdk v0.37.2",
-    "openvibe-shared v2.21.2",
+    "openvibe-shared v3.0.0",
     "openvibe-publishing v1.4.0"
   ],
   "summary": "OpenVibe.Work gathers job listings from three public job boards (Arbeitnow, Remotive, RemoteOK) under their terms — the source is named and the original listing is linked on every page, and only a short excerpt is kept. It searches them with facets, shows one listing with a schema.org JobPosting whose url is the original, and lets a signed-in person keep a search and see what is new since they last looked. Public reads need no token.",
@@ -53,6 +53,6 @@
     "background ingest",
     "deploy files"
   ],
-  "updated": "2026-10-10",
-  "deployment": "openvibe-ovh: unit openvibe-work.service on 127.0.0.1:4960 (git checkout /opt/openvibe.work, env /etc/openvibe/work.env, database ov_work), deployed with `sudo ovhost deploy work`; public at https://openvibe.work since 2026-10-08."
+  "deployment": "openvibe-ovh: unit openvibe-work.service on 127.0.0.1:4960 (git checkout /opt/openvibe.work, env /etc/openvibe/work.env, database ov_work), deployed with `sudo ovhost deploy work`; public at https://openvibe.work since 2026-10-08.",
+  "updated": "2026-10-10"
 }
