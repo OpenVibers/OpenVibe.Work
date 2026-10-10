@@ -36,7 +36,7 @@ async function fetchJson(url, { fetchImpl, timeoutMs, userAgent }) {
 
 const TICK_MS = 3_600_000;
 
-function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console }) {
+function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, afterRun = null }) {
     const timers = new Map();
     let running = false;
 
@@ -95,6 +95,8 @@ function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console }
             } catch (err) {
                 log.warn(`[Ingest] expiry failed: ${(err && err.message) || err}`);
             }
+            // Search catches up with what this run changed (server/search-index.js); never awaited, never fatal.
+            if (afterRun && out.some((o) => !o.skipped)) afterRun();
             return out;
         } finally { running = false; }
     }

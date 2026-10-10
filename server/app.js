@@ -31,6 +31,7 @@ const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
 const { createCallerLimits } = require('./http/caller-limits');
 const { createIngest } = require('./ingest');
+const { createSearchIndex } = require('./search-index');
 const accountDataLib = require('./identity/account-data');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
 const { assetVersion, send } = require('./render/layout');
@@ -67,7 +68,10 @@ async function createApp(opts = {}) {
     ctx.limits = createCallerLimits({ config, now: opts.limitsNow || (() => Date.now()), registry: metrics.registry, log, enabled: opts.callerLimits !== false, valkey });
     // The job-board ingest. Built here so a test can run one source against its stand-in server, but started only by
     // server/index.js, and only when WORK_INGEST=on: nothing fetches a board in a test or a development run.
-    ctx.ingest = createIngest({ config, s, fetchImpl, log });
+    // Listing pages in OpenVibe.Search (./search-index.js): swept after every ingest run, and on its own timer once
+    // server/index.js starts it. The outbox relay is off until the events URL and the OAuth client secret are set.
+    ctx.search = opts.search || createSearchIndex({ config, s, log });
+    ctx.ingest = createIngest({ config, s, fetchImpl, log, afterRun: () => ctx.search.afterIngest() });
 
     // Account export and deletion (ADR-033, ./identity/account-data.js): the one table that holds a person's rows.
     // The sender posts to Network's internal export/deletion routes with this service's own client-credentials token;

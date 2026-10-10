@@ -15,7 +15,7 @@ const { gracefulStop } = require('openvibe-sdk/service');
 function createLifecycle({ server, ctx, exit, signals, timers = [], extra = [] }) {
     return gracefulStop({
         name: 'OpenVibe.Work', server, deadlineExitCode: 0, exit, signals, deadlineMs: 10_000,
-        close: [() => { for (const t of timers) clearInterval(t); }, () => ctx.ingest.stop(), () => ctx.keys.client.stop(), () => ctx.s.close(), ...extra],
+        close: [() => { for (const t of timers) clearInterval(t); }, () => ctx.ingest.stop(), () => ctx.search.stop(), () => ctx.keys.client.stop(), () => ctx.s.close(), ...extra],
     });
 }
 
@@ -29,6 +29,7 @@ async function start() {
     server.keepAliveTimeout = 65_000;
     ctx.keys.client.start();
     ctx.ingest.start();
+    ctx.search.start();
 
     // Subscribe to the two ADR-033 topics at OpenVibe.Events (idempotent; off without WORK_EVENTS_URL and
     // WORK_EVENTS_SECRET). The consumer itself is mounted in server/app.js.
