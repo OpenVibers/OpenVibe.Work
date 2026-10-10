@@ -38,7 +38,7 @@
   ],
   "capabilitiesRegistered": false,
   "serviceManifestRegistered": false,
-  "deployed": false,
+  "deployed": true,
   "placeholderInSites": false,
   "features": [
     "Network sign-in",
@@ -53,5 +53,6 @@
     "background ingest",
     "deploy files"
   ],
-  "updated": "2026-10-10"
+  "updated": "2026-10-10",
+  "deployment": "openvibe-ovh: unit openvibe-work.service on 127.0.0.1:4960 (git checkout /opt/openvibe.work, env /etc/openvibe/work.env, database ov_work), deployed with `sudo ovhost deploy work`; public at https://openvibe.work since 2026-10-08."
 }
