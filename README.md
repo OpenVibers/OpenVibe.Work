@@ -8,6 +8,14 @@ written yet.
 **Domain:** `openvibe.work` · **Port:** 4960 · **Service id:** `work` · **Env prefix:** `WORK`
 **License:** AGPL-3.0 (same as every OpenVibe service).
 
+## Purpose
+
+OpenVibe.Work is the network's job-listings service: it gathers listings from public job boards, keeps each one's
+provenance and a short plain-text excerpt, and makes them searchable without an account. A signed-in person can keep a
+search and see how many listings have appeared since they last looked. Nothing is republished — every listing links
+back to the board, where the reader reads the full listing and applies. The agent pillar (helping prepare and track an
+application) is not written yet.
+
 ## What it does
 
 Job listings gathered from public job boards, each one carrying its provenance — the board it came from and a link
@@ -35,6 +43,57 @@ plain-text excerpt and sends the reader to the board for the full listing and to
 | Process | [server/index.js](server/index.js) | Listens on `PORT`, starts the ingest when it is on, and stops gracefully through `openvibe-sdk/service` |
 | Deploy | [deploy/nginx/openvibe.work.conf](deploy/nginx/openvibe.work.conf), [deploy/systemd/openvibe-work.service](deploy/systemd/openvibe-work.service) | nginx vhost and systemd unit (port 4960, `/opt/openvibe.work`, `/etc/openvibe/work.env`) |
 | Tests | [test/](test/) | `npm test`: every `test/*.test.js` in its own process, on a temp PGlite database, with a mock OpenVibe.Network and a stand-in for each job board |
+
+## Owns
+
+Its own PostgreSQL tables, created by [migrations/](migrations/) and written by nothing else:
+
+- `work_listings` (0002) — one row per listing, upserted on `(source, source_id)`, with the board's own id, the
+  original `url` to link back to, the fields the board gives, and a short plain-text excerpt. Expired listings are
+  kept but hidden.
+- `work_saved_searches` (0002) — a search a person saved, keyed `subject = user:usr_…`, with when they last looked.
+- `work_source_fetches` (0002) — what each board's last fetch did, so `/sources` can say when it last ran and how.
+- `account_data_events` (0003) — the receipts of the ADR-033 export and deletion deliveries this service applied, so a
+  redelivered event changes nothing.
+
+0001 creates no tables. The service is the authority for these rows and for nothing else.
+
+## Does not own
+
+- **Identity and accounts** — OpenVibe.Network: sign-in (OAuth client `work`, PKCE S256), the signing keys (JWKS) and
+  the canonical subject. Work holds only `user:usr_…` on its own rows.
+- **Event delivery** — OpenVibe.Events: Work receives `network.account.export_requested` and `network.account.deleted`
+  and creates its two subscriptions at boot; it does not own the topics or the delivery.
+- **The listings themselves** — the boards (Arbeitnow, Remotive, RemoteOK): Work keeps a short excerpt and a link back,
+  never the full description, and reads each board only on the terms it publishes.
+
+## Depends on
+
+- **OpenVibe.Network** — SSO sign-in and JWKS verification, and the internal routes an export part or a deletion
+  confirmation is pushed to (`OV_NETWORK_URL`, `OV_NETWORK_INTERNAL_URL`, `OV_OAUTH_CLIENT_ID`,
+  `OV_OAUTH_CLIENT_SECRET`, `OV_NETWORK_ISSUER`, `OV_SESSION_AUDIENCE`, `WORK_AUDIENCE`).
+- **OpenVibe.Events** — the two account subscriptions created at boot and the delivery posted to this service's
+  loopback `/internal/events` (`WORK_EVENTS_URL` or `EVENTS_URL`, `WORK_EVENTS_SECRET`, `WORK_EVENTS_ENDPOINT`,
+  `WORK_EVENTS_SUBSCRIBE`).
+- **The three job boards** — the only hosts the ingest fetches: Arbeitnow, Remotive and RemoteOK's public APIs
+  (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`, `WORK_REMOTEOK_URL`, `WORK_USER_AGENT`).
+- **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
+  `WORK_PGLITE_DIR`) and **Valkey** for shared limit counters (`VALKEY_URL`, `VALKEY_PREFIX`).
+- **Packages**: `openvibe-contracts` v0.122.1, `openvibe-sdk` v0.36.0 (`db`, `auth`, `account-data`, `limits`,
+  `valkey`, `service`) and `openvibe-shared` v2.20.0 (`frame`, `legal`, `serve`, `release`, `metrics`, `ready`,
+  `seo`, `shell`, `cache-policy`, `showcase`, `app-icon`).
+
+## Capabilities
+
+The service manifest (`work`, openvibe-contracts) lists none, and [server/http/principal.js](server/http/principal.js)
+declares none either (`CAPABILITIES` is empty): no route names a capability, so an app, agent or service token cannot
+call the person-only saved-search routes (403) and the public reads need no token. Work calls no capability on another
+service.
+
+It does use two machine-to-machine surfaces: OpenVibe.Events' subscription API (scope `events.subscription.manage`)
+to create its two account-event subscriptions at boot ([server/events-consumer.js](server/events-consumer.js)), and
+OpenVibe.Network's internal account export/deletion routes, pushed with this service's own client-credentials token
+([server/identity/account-data.js](server/identity/account-data.js)).
 
 ## API
 
@@ -98,6 +157,35 @@ fnm exec --using=22 npm run ingest  # read every board once, then exit
 
 Without `DATABASE_URL` development uses an embedded PGlite database in `data/pglite` (one process only). `npm run
 test:pg` runs the same suite through PostgreSQL and PgBouncer (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
+
+## Acceptance
+
+`npm test` runs every `test/*.test.js` in its own process on a temp PGlite database with a mock OpenVibe.Network and a
+stand-in for each job board ([test/helpers/boards.js](test/helpers/boards.js)); `npm run test:pg` runs the same suite
+through PostgreSQL and PgBouncer. No test reaches the internet. The main files:
+
+- [test/ingest.test.js](test/ingest.test.js) — the three stand-in boards end to end: what is kept and what is refused,
+  a re-read updating rather than duplicating, a failing board recorded without stopping the others, the
+  ~300-character excerpt only, and expiry after the retention window.
+- [test/jobs.test.js](test/jobs.test.js) — search, filters, facets and the cursor, one listing with its provenance and
+  JSON-LD, escaping of a hostile title, and the discovery files that carry the listings and the sources.
+- [test/saved.test.js](test/saved.test.js) — a saved search belongs to a person: anonymous is 401, an app token is
+  403, a signed-in write from another site is refused, and nobody sees anybody else's.
+- [test/account-data.test.js](test/account-data.test.js) — ADR-033 export and deletion through `/internal/events` with
+  a stand-in Network: only that person's rows, applied once, a bad signature and a forwarded request refused.
+- [test/auth-ops.test.js](test/auth-ops.test.js) — PKCE sign-in, truthful readiness, `/release.json`, loopback-only
+  `/metrics` and pages useful without JavaScript.
+- [test/auth-jwks.test.js](test/auth-jwks.test.js) — the Network signing key fetched and verified, an outage survived
+  on cached keys, and a rotation honoured.
+- [test/caller-limits.test.js](test/caller-limits.test.js) — per-caller limits, the 429 `rate_limited` before any
+  work, and the product's own route budgets.
+- and the rest: [test/security-session.test.js](test/security-session.test.js),
+  [test/security-secrets.test.js](test/security-secrets.test.js), [test/discovery.test.js](test/discovery.test.js),
+  [test/layout.test.js](test/layout.test.js), [test/open-redirect.test.js](test/open-redirect.test.js),
+  [test/no-internal-key.test.js](test/no-internal-key.test.js),
+  [test/nginx-auth-limit.test.js](test/nginx-auth-limit.test.js),
+  [test/asset-cache.test.js](test/asset-cache.test.js), [test/perf-budget.test.js](test/perf-budget.test.js),
+  [test/service-kit.test.js](test/service-kit.test.js).
 
 ## Deploy (for the lead)
 
