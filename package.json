@@ -2,7 +2,7 @@
   "name": "openvibe-work",
   "version": "0.2.0",
   "private": true,
-  "description": "OpenVibe.Work — Find work, with an agent on your side.",
+  "description": "OpenVibe.Work \u2014 Find work, with an agent on your side.",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
@@ -23,7 +23,8 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
     "iovalkey": "^0.4.0",
-    "openvibe-contracts": "https://codeload.github.com/OpenVibers/OpenVibe.Contracts/tar.gz/refs/tags/v0.127.0",
+    "openvibe-contracts": "https://codeload.github.com/OpenVibers/OpenVibe.Contracts/tar.gz/refs/tags/v0.128.0",
+    "openvibe-publishing": "https://codeload.github.com/OpenVibers/OpenVibe.Publishing/tar.gz/refs/tags/v1.4.0",
     "openvibe-sdk": "https://codeload.github.com/OpenVibers/OpenVibe.SDK/tar.gz/refs/tags/v0.36.0",
     "openvibe-shared": "https://codeload.github.com/OpenVibers/OpenVibe.Shared/tar.gz/refs/tags/v2.20.4",
     "pg": "^8.23.0"

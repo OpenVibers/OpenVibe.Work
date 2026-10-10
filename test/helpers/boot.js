@@ -77,6 +77,7 @@ async function boot(opts = {}) {
         logs: () => captured.join('\n'),
         async close() {
             built.ctx.ingest.stop();
+            built.ctx.search.stop();
             await new Promise((r) => server.close(r));
             built.ctx.keys.client.stop();
             await testdb.close();
