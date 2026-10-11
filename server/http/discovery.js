@@ -18,7 +18,7 @@ const store = require('../jobs/store');
 const sources = require('../jobs/sources');
 
 const SITE_NAME = 'OpenVibe.Work';
-const DESCRIPTION = 'OpenVibe.Work — Find work, with an agent on your side. Job listings from open boards with their source, searchable and free to read.';
+const DESCRIPTION = 'OpenVibe.Work — Find work on open job boards. Every listing names its source; searchable and free to read, no account needed.';
 const DISALLOW = ['/auth/', '/api/', '/saved'];
 const SITEMAP_JOBS = 1000;
 
@@ -75,7 +75,7 @@ function createDiscoveryRoutes(ctx) {
             details: 'Every page is server-rendered and readable without JavaScript. Listings come from public job boards under their terms: the source is named and the original listing is linked; only a short excerpt is kept here.',
             sections: [
                 { title: 'Start here', links: [
-                    { title: 'OpenVibe.Work', url: abs('/'), note: 'Find work, with an agent on your side.' },
+                    { title: 'OpenVibe.Work', url: abs('/'), note: 'Find work on open job boards.' },
                     { title: 'Search the listings', url: abs('/jobs'), note: 'Filter by words, workplace, job type and location.' },
                     { title: 'Where the listings come from', url: abs('/sources'), note: `${sources.SOURCES.map((x) => x.name).join(', ')}, with the terms each is used under.` },
                     { title: 'What shipped on OpenVibe.Work', url: abs('/updates') },

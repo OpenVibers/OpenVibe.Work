@@ -20,7 +20,7 @@ const { html, raw, esc } = require('./html');
 
 const NETWORK_URL = 'https://openvibe.network';
 const SITE_NAME = 'OpenVibe.Work';
-const TAGLINE = 'Find work, with an agent on your side.';
+const TAGLINE = 'Find work on open job boards.';
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 // The product's own navigation: one entry per public page it serves.
 const NAV = [
