@@ -23,7 +23,7 @@ const store = require('../jobs/store');
 const sources = require('../jobs/sources');
 
 const SITE_NAME = 'OpenVibe.Work';
-const TAGLINE = 'Find work, with an agent on your side.';
+const TAGLINE = 'Find work on open job boards.';
 
 function createPageRoutes(ctx) {
     const { config, s } = ctx;

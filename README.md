@@ -1,6 +1,6 @@
 # OpenVibe.Work
 
-> Find work, with an agent on your side.
+> Find work on open job boards.
 
 **Status:** the listings and the search are live (listings gathered from three public job boards, search, saved
 searches, an API and the pages around them). The agent pillar — help preparing and tracking an application — is not

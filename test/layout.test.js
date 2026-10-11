@@ -38,7 +38,7 @@ const BOOST = /<script src="\/shared\/boost\.js\?v=[0-9a-f]{12}" data-main="#mai
         assert.strictEqual(r.status, 200);
         const head = r.text.slice(0, r.text.indexOf('</head>'));
         assert.strictEqual((r.text.match(/<title>/g) || []).length, 1, 'exactly one <title>');
-        assert.ok(head.includes('<title>OpenVibe.Work: Find work, with an agent on your side.</title>'), 'home title');
+        assert.ok(head.includes('<title>OpenVibe.Work: Find work on open job boards.</title>'), 'home title');
         assert.ok(head.includes('<link rel="canonical" href="https://openvibe.work/">'), 'canonical');
         assert.ok(head.includes('<meta name="robots" content="index, follow">'), 'robots');
         const ld = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])['@type']);
@@ -61,7 +61,7 @@ const BOOST = /<script src="\/shared\/boost\.js\?v=[0-9a-f]{12}" data-main="#mai
         assert.strictEqual(r.status, 200, r.text.slice(0, 300));
         assert.match(r.headers.get('content-type'), /^text\/html/);
         assert.ok(r.text.includes('OpenVibe.Work'), 'the service name is on the page');
-        assert.ok(r.text.includes('Find work, with an agent on your side.'), 'the tagline is on the page');
+        assert.ok(r.text.includes('Find work on open job boards.'), 'the tagline is on the page');
         assert.ok(r.text.includes('/shared/showcase.css'), 'the showcase stylesheet');
         assert.ok(!r.text.includes('/home/') && !r.text.includes('/mnt/'), 'no local filesystem path on the page');
     });
