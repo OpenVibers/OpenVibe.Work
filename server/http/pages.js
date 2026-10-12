@@ -21,9 +21,12 @@ const { send } = require('../render/layout');
 const listing = require('../render/listing');
 const store = require('../jobs/store');
 const sources = require('../jobs/sources');
+const applications = require('../applications');
 
 const SITE_NAME = 'OpenVibe.Work';
 const TAGLINE = 'Find work on open job boards.';
+const STATUS_ORDER = ['saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn'];
+const STATUS_LABEL = { saved: 'Saved', applied: 'Applied', interviewing: 'Interviewing', offer: 'Offer', rejected: 'Rejected', withdrawn: 'Withdrawn' };
 
 function createPageRoutes(ctx) {
     const { config, s } = ctx;
@@ -89,6 +92,19 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
     /** Which of the three sources a listing came from, named; the ingest keeps to these and nothing else. */
     const sourceLine = (row) => html`${listing.sourceLink(row, sourceOf(row))}`;
 
+    /** A status's badge and its name, in the one place the pages spell them. */
+    const statusBadge = (st) => html`<span class="badge${st === 'offer' ? ' ok' : st === 'rejected' || st === 'withdrawn' ? ' bad' : ''}">${STATUS_LABEL[st] || st}</span>`;
+    /** An ISO instant as the YYYY-MM-DD an <input type="date"> wants ('' when there is none). */
+    const dateInputValue = (iso) => (iso && typeof iso === 'string' ? iso.slice(0, 10) : '');
+    /** An <input type="date"> value back to an ISO instant, or null to clear. */
+    const dateFromForm = (v) => {
+        if (!v) return null;
+        const s = String(v).trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return undefined;
+        const d = new Date(`${s}T00:00:00Z`);
+        return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    };
+
     // ── Home ─────────────────────────────────────────────────
     r.get('/', async (req, res) => {
         const [latest, counts, rows] = await Promise.all([store.listRecent(s, 6, { remote: true }), store.countsBySource(s), store.search(s, {}, { limit: 1 })]);
@@ -132,7 +148,7 @@ ${raw(showcase.steps({
                     { title: 'Read it on the board', text: 'The listing page shows the excerpt and sends you to the original listing to read it in full and apply. Nothing is republished.' },
                     { title: 'Keep a search', text: 'Sign in to save a search; /saved shows each one with the count of listings that appeared since you last looked.' },
                     { title: 'Nothing behind a paywall', text: 'Reading and searching is free and needs no account. There is no premium tier on the listings, and listings expire when a board stops showing them.' },
-                    { title: 'An agent, next', text: 'The agent that drafts and tracks applications is the next pillar; alerts through OpenVibe.Watch come with it.' },
+                    { title: 'Track your applications', text: 'Sign in and press Track this job on a listing: keep your status, notes and next steps in one place, and ask your OpenVibe.Actor agent to help prepare each application.' },
                 ],
             }))}
 ${raw(showcase.cta({ title: 'Prefer the API?', text: 'The same search, the sources and their terms, and your saved searches over HTTP. Reading is public.', actions: [{ label: 'The API', href: '/docs' }, { label: 'The sources', href: '/sources' }] }))}`,
@@ -175,6 +191,7 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
         }
         const src = sourceOf(row);
         const l = listing.meta(row);
+        const tracked = signedIn(req) ? await applications.applicationByListing(s, subjectOf(req), row.id) : null;
         page(req, res, {
             index: true, cache: PUBLIC_CACHE,
             title: `${l.title} at ${l.company}`,
@@ -191,6 +208,11 @@ ${l.tags.length ? html`<ul class="job-tags">${l.tags.map((t) => html`<li>${t}</l
 <p>${l.excerpt}</p>
 <p class="muted small">This is a short excerpt only. The full listing stays on the board.</p></section>
 <p class="job-apply"><a class="sc-btn sc-primary" href="${l.url}" rel="nofollow noopener external" target="_blank">Read the full listing on ${src.name}</a></p>
+${signedIn(req)
+            ? (tracked
+                ? html`<p class="job-track"><span class="badge ok">Tracked: ${STATUS_LABEL[tracked.status] || tracked.status}</span> <a href="/applications/${tracked.id}">Open your application</a></p>`
+                : html`<form class="inline" method="post" action="/jobs/${row.id}/track"><button class="sc-btn" type="submit">Track this job</button></form>`)
+            : html`<p class="muted small"><a href="/auth/login?next=%2Fjobs%2F${row.id}">Sign in</a> to track this job and ask your agent for help applying.</p>`}
 <dl class="job-facts">
 <dt>Source</dt><dd>${sourceLine(row)} — <a href="/sources#${src.id}">its terms as applied</a></dd>
 ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
@@ -242,7 +264,7 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
         for (const row of rows) await store.touchSaved(s, subject, row.id, now);
         const initial = store.filtersOf(req.query);
         page(req, res, {
-            title: 'Saved searches', crumbs: [{ label: 'Saved searches' }],
+            title: 'Saved searches', crumbs: [{ label: 'Saved searches' }], styles: [showcase.STYLESHEET],
             body: html`<h1>Saved searches</h1>
 <p>${rows.length ? html`You are keeping ${rows.length} search${rows.length === 1 ? '' : 'es'}. The count is how many listings appeared since you last opened this page.` : 'You are not keeping any search yet.'}</p>
 ${withCounts.length ? html`<ul class="saved-list">${withCounts.map(({ row, count }) => html`<li class="saved-item">
@@ -286,6 +308,191 @@ ${notice('Give the search at least one thing to look for — words, a location, 
         if (!sameOrigin(req, config.baseUrl)) return res.status(403).type('text/plain').send('Forgetting a search must come from openvibe.work itself.');
         await store.deleteSaved(s, subjectOf(req), req.params.id);
         res.redirect(303, '/saved');
+    });
+
+    // ── Applications ─────────────────────────────────────────
+    const APP_STYLES = ['css/applications.css'];
+    const editForm = (a) => html`<form class="app-form" method="post" action="/applications/${a.id}">
+<label>Status <select name="status">${STATUS_ORDER.map((st) => html`<option value="${st}"${a.status === st ? raw(' selected') : ''}>${STATUS_LABEL[st]}</option>`)}</select></label>
+<div class="app-row"><label>Applied on <input type="date" name="applied_at" value="${dateInputValue(a.applied_at)}"></label>
+<label>Next step by <input type="date" name="next_step_at" value="${dateInputValue(a.next_step_at)}"></label></div>
+<label>Next step <input type="text" name="next_step" maxlength="200" value="${a.next_step || ''}" placeholder="Follow up with the recruiter"></label>
+<label>Notes <textarea name="notes" maxlength="5000" rows="6">${a.notes || ''}</textarea></label>
+<button class="sc-btn sc-primary" type="submit">Save</button>
+</form>`;
+    const addForm = () => html`<section class="app-panel app-add" aria-labelledby="h-add"><h2 id="h-add">Add one by hand</h2>
+<form class="app-form" method="post" action="/applications">
+<div class="app-row"><label>Job title <input type="text" name="title" maxlength="500" required></label>
+<label>Company <input type="text" name="company" maxlength="200" required></label></div>
+<label>Link to the listing <input type="url" name="url" maxlength="2000" required placeholder="https://"></label>
+<button class="sc-btn sc-primary" type="submit">Add application</button>
+</form>
+<p class="muted small">Or press “Track this job” on any <a href="/jobs">listing</a>.</p></section>`;
+
+    const renderApplication = (req, res, a, { events = [], problem = null, assisted = false } = {}) => page(req, res, {
+        title: `${a.title} at ${a.company}`, styles: [showcase.STYLESHEET], localStyles: APP_STYLES,
+        crumbs: [{ label: 'Applications', href: '/applications' }, { label: a.title }],
+        body: html`<div class="app-head"><h1>${a.title}</h1>${statusBadge(a.status)}</div>
+<p class="app-company">${a.company}${a.url ? html` · <a href="${a.url}" rel="nofollow noopener external" target="_blank">the original listing</a>` : ''}${a.listing_id ? html` · <a href="/jobs/${a.listing_id}">this listing on OpenVibe.Work</a>` : ''}</p>
+${problem ? notice(problem, 'warn') : ''}
+${assisted && a.actor_task_id ? notice(html`Your agent is on it: <a href="${config.actor.publicUrl}/tasks/${a.actor_task_id}">open the task on OpenVibe.Actor</a>.`, 'ok') : ''}
+<div class="app-detail">
+<section class="app-panel" aria-labelledby="h-edit"><h2 id="h-edit">Your application</h2>${editForm(a)}</section>
+<div>
+<section class="app-panel app-agent" aria-labelledby="h-agent"><h2 id="h-agent">Help from your agent</h2>
+<p class="small">Your OpenVibe.Actor agent reads this listing and your notes, then works on what you ask. It runs on your Actor allowance.</p>
+<form class="app-form" method="post" action="/applications/${a.id}/assist">
+<label>What do you want help with? <span class="muted">(optional)</span><textarea name="ask" maxlength="1000" rows="3" placeholder="${applications.DEFAULT_ASK}"></textarea></label>
+<button class="sc-btn sc-primary" type="submit">Ask my agent</button>
+</form>
+${a.actor_task_id ? html`<p class="small">Latest task: <a href="${config.actor.publicUrl}/tasks/${a.actor_task_id}">open it on OpenVibe.Actor</a>${a.assists > 1 ? html` (${a.assists} asked so far)` : ''}.</p>` : ''}
+</section>
+<section class="app-panel" aria-labelledby="h-history"><h2 id="h-history">History</h2>
+${events.length ? html`<ul class="app-history">${events.map((e) => html`<li>${time(e.at)} · ${STATUS_LABEL[e.from_status] || e.from_status} → ${STATUS_LABEL[e.to_status] || e.to_status}</li>`)}</ul>` : html`<p class="muted small">No status changes yet. Added ${time(a.created_at)}.</p>`}
+</section>
+<form class="app-danger" method="post" action="/applications/${a.id}/delete"><button type="submit">Delete this application</button></form>
+</div>
+</div>`,
+    });
+
+    r.get('/applications', async (req, res) => {
+        if (!signedIn(req)) {
+            return page(req, res, {
+                title: 'Applications', styles: [showcase.STYLESHEET],
+                body: html`<h1>Applications</h1>
+<p>Track the jobs you apply to, keep your notes and next steps in one place, and ask your OpenVibe.Actor agent to help you prepare each application. Sign in to begin.</p>
+<p><a class="sc-btn sc-primary" href="/auth/login?next=%2Fapplications">Sign in with OpenVibe</a> <a class="sc-btn" href="/jobs">Search the listings</a></p>`,
+            });
+        }
+        const subject = subjectOf(req);
+        const rows = await applications.listAllApplications(s, subject);
+        const groups = STATUS_ORDER.map((st) => ({ status: st, rows: rows.filter((r) => r.status === st) }));
+        const total = rows.length;
+        page(req, res, {
+            title: 'Applications', crumbs: [{ label: 'Applications' }], styles: [showcase.STYLESHEET], localStyles: APP_STYLES,
+            body: html`<h1>Applications</h1>
+<p>${total ? html`You are tracking ${total} application${total === 1 ? '' : 's'}.` : html`Nothing tracked yet. Press “Track this job” on a <a href="/jobs">listing</a>, or add one by hand below.`}</p>
+${total ? html`<ul class="app-summary" aria-label="Applications by status">${groups.map((g) => html`<li>${g.rows.length ? html`<a href="#h-${g.status}">${STATUS_LABEL[g.status]} <strong>${g.rows.length}</strong></a>` : html`<span class="is-empty">${STATUS_LABEL[g.status]} <strong>0</strong></span>`}</li>`)}</ul>` : ''}
+${groups.map((g) => (g.rows.length ? html`<section class="app-group" aria-labelledby="h-${g.status}">
+<h2 id="h-${g.status}">${STATUS_LABEL[g.status]}</h2>
+<ul class="app-list">${g.rows.map((a) => html`<li class="app-item">
+<p class="app-title"><a href="/applications/${a.id}">${a.title}</a>${statusBadge(a.status)}</p>
+<p class="app-co">${a.company}</p>
+${a.next_step ? html`<p class="app-next">Next: ${a.next_step}${a.next_step_at ? html` · by <time datetime="${a.next_step_at}">${dateInputValue(a.next_step_at)}</time>` : ''}</p>` : ''}
+<p class="muted small">Updated ${time(a.updated_at)}</p>
+</li>`)}</ul>
+</section>` : ''))}
+${addForm()}`,
+        });
+    });
+
+    r.post('/applications', require('express').urlencoded({ extended: false, limit: '8kb' }), async (req, res) => {
+        res.set('Cache-Control', cache.htmlHeaders({ private: true }));
+        if (!signedIn(req)) return res.redirect(303, '/auth/login?next=%2Fapplications');
+        if (!sameOrigin(req, config.baseUrl)) return res.status(403).type('text/plain').send('Adding an application must come from openvibe.work itself.');
+        const v = applications.validateCreate(req.body || {});
+        if (v.error) {
+            return page(req, res, { title: 'Applications', crumbs: [{ label: 'Applications' }], body: html`<h1>Applications</h1>${notice(v.error[2], 'warn')}<p><a href="/applications">Back to your applications</a></p>` }, 400);
+        }
+        const out = await applications.createApplication(s, subjectOf(req), v.fields, { id: s.newId('wap'), now: s.iso(), max: config.applications.max });
+        if (out.error === 'full') {
+            return page(req, res, { title: 'Applications', body: html`<h1>Applications</h1>${notice(`You can track up to ${config.applications.max} applications; delete one first.`, 'warn')}<p><a href="/applications">Back to your applications</a></p>` }, 409);
+        }
+        return res.redirect(303, `/applications/${out.row.id}`);
+    });
+
+    r.get('/applications/:id', async (req, res) => {
+        if (!signedIn(req)) {
+            return page(req, res, {
+                title: 'Application', styles: [showcase.STYLESHEET],
+                body: html`<h1>Application</h1><p>Sign in to see your applications.</p><p><a class="sc-btn sc-primary" href="/auth/login?next=%2Fapplications">Sign in with OpenVibe</a></p>`,
+            });
+        }
+        const subject = subjectOf(req);
+        const a = await applications.getApplication(s, subject, req.params.id);
+        if (!a) {
+            return page(req, res, {
+                title: 'Application not found',
+                body: html`<h1>Application not found</h1><p>No application here with that id. It may have been deleted.</p><p><a href="/applications">Back to your applications</a></p>`,
+            }, 404);
+        }
+        const events = await applications.listEvents(s, a.id);
+        return renderApplication(req, res, a, { events, assisted: req.query.assisted === '1' });
+    });
+
+    r.post('/applications/:id', require('express').urlencoded({ extended: false, limit: '16kb' }), async (req, res) => {
+        res.set('Cache-Control', cache.htmlHeaders({ private: true }));
+        if (!signedIn(req)) return res.redirect(303, `/auth/login?next=${encodeURIComponent(`/applications/${req.params.id}`)}`);
+        if (!sameOrigin(req, config.baseUrl)) return res.status(403).type('text/plain').send('Editing an application must come from openvibe.work itself.');
+        const subject = subjectOf(req);
+        const current = await applications.getApplication(s, subject, req.params.id);
+        if (!current) return res.status(404).type('text/plain').send('No such application.');
+        const patch = { status: req.body.status, notes: req.body.notes || '', next_step: req.body.next_step || '', next_step_at: dateFromForm(req.body.next_step_at) };
+        const applied = req.body.applied_at ? dateFromForm(req.body.applied_at) : undefined;
+        if (applied !== undefined && applied !== null) patch.applied_at = applied;
+        const v = applications.validatePatch(patch);
+        if (v.error) {
+            const a = await applications.getApplication(s, subject, req.params.id);
+            const events = await applications.listEvents(s, a.id);
+            return renderApplication(req, res, a, { events, problem: v.error[2] });
+        }
+        await applications.updateApplication(s, subject, req.params.id, v.fields, { now: s.iso() });
+        return res.redirect(303, `/applications/${req.params.id}`);
+    });
+
+    r.post('/applications/:id/assist', require('express').urlencoded({ extended: false, limit: '8kb' }), async (req, res) => {
+        res.set('Cache-Control', cache.htmlHeaders({ private: true }));
+        if (!signedIn(req)) return res.redirect(303, `/auth/login?next=${encodeURIComponent(`/applications/${req.params.id}`)}`);
+        if (!sameOrigin(req, config.baseUrl)) return res.status(403).type('text/plain').send('Asking your agent must come from openvibe.work itself.');
+        const subject = subjectOf(req);
+        const app = await applications.getApplication(s, subject, req.params.id);
+        if (!app) return res.status(404).type('text/plain').send('No such application.');
+        const a = applications.validateAsk(req.body || {});
+        if (a.error) {
+            const events = await applications.listEvents(s, app.id);
+            return renderApplication(req, res, app, { events, problem: a.error[2] });
+        }
+        const actor = ctx.actor;
+        if (!actor || !actor.available) {
+            const events = await applications.listEvents(s, app.id);
+            return renderApplication(req, res, app, { events, problem: 'The OpenVibe.Actor agent is not available right now.' });
+        }
+        const n = Number(app.assists || 0) + 1;
+        const idempotencyKey = `work-assist:${app.id}:${n}`;
+        const listing = app.listing_id ? await store.getListing(s, app.listing_id) : null;
+        const text = applications.buildTaskText(app, listing, a.ask);
+        let out;
+        try {
+            out = await actor.createTask({ subjectId: subject.slice('user:'.length), task: text, idempotencyKey });
+        } catch (err) {
+            const events = await applications.listEvents(s, app.id);
+            if (err && (err.status === 402 || err.status === 429)) return renderApplication(req, res, app, { events, problem: (err.detail || 'The agent refused this task.') });
+            return renderApplication(req, res, app, { events, problem: 'The agent could not be reached.' });
+        }
+        await applications.recordAssist(s, subject, app.id, out.id, s.iso());
+        return res.redirect(303, `/applications/${app.id}?assisted=1`);
+    });
+
+    r.post('/applications/:id/delete', async (req, res) => {
+        res.set('Cache-Control', cache.htmlHeaders({ private: true }));
+        if (!signedIn(req)) return res.redirect(303, '/auth/login?next=%2Fapplications');
+        if (!sameOrigin(req, config.baseUrl)) return res.status(403).type('text/plain').send('Deleting an application must come from openvibe.work itself.');
+        await applications.deleteApplication(s, subjectOf(req), req.params.id);
+        return res.redirect(303, '/applications');
+    });
+
+    r.post('/jobs/:id/track', async (req, res) => {
+        res.set('Cache-Control', cache.htmlHeaders({ private: true }));
+        if (!signedIn(req)) return res.redirect(303, `/auth/login?next=${encodeURIComponent(`/jobs/${req.params.id}`)}`);
+        if (!sameOrigin(req, config.baseUrl)) return res.status(403).type('text/plain').send('Tracking must come from openvibe.work itself.');
+        const listingRow = await store.getListing(s, req.params.id);
+        if (!listingRow) return res.status(404).type('text/plain').send('No such listing to track.');
+        const subject = subjectOf(req);
+        const existing = await applications.applicationByListing(s, subject, listingRow.id);
+        if (existing) return res.redirect(303, `/applications/${existing.id}`);
+        const out = await applications.createApplication(s, subject, { listing_id: listingRow.id, title: listingRow.title, company: listingRow.company, url: listingRow.url }, { id: s.newId('wap'), now: s.iso(), max: config.applications.max });
+        if (out.error === 'full') return res.redirect(303, '/applications');
+        return res.redirect(303, `/applications/${out.row.id}`);
     });
 
     // ── The sources and their terms ──────────────────────────

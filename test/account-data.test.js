@@ -11,6 +11,7 @@ const { boot, check, done } = require('./helpers/boot');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
 const { signDeliveryHeaders } = require('openvibe-sdk/events');
 const jobsStore = require('../server/jobs/store');
+const appsStore = require('../server/applications');
 
 const A = 'usr_01JZ0000000000000000000AAA';
 const B = 'usr_01JZ0000000000000000000BBB';
@@ -52,6 +53,16 @@ async function makeRows(t, subject, q) {
     return out.row;
 }
 
+/** Track an application for one person, with one status change, through the applications store. */
+async function makeApplication(t, subject) {
+    const s = t.ctx.s;
+    const resolved = await appsStore.resolveCreateFields(s, { title: 'Backend Engineer', company: 'Acme', url: 'https://acme.example/job' });
+    const out = await appsStore.createApplication(s, `user:${subject}`, resolved.fields, { id: s.newId('wap'), now: s.iso() });
+    assert.ok(out.row, 'the application was created');
+    await appsStore.updateApplication(s, `user:${subject}`, out.row.id, { status: 'applied' }, { now: s.iso() });
+    return out.row;
+}
+
 (async () => {
     await check('an export part carries only the person\'s saved searches, and no secret', async () => {
         const stub = await startNetworkStub();
@@ -60,6 +71,8 @@ async function makeRows(t, subject, q) {
         try {
             await makeRows(t, A, 'person-a');
             await makeRows(t, B, 'person-b');
+            await makeApplication(t, A);
+            await makeApplication(t, B);
 
             const res = await t.get('/internal/events', { method: 'POST', body: bodyOf(exportEvent), headers: { 'Content-Type': 'application/json', ...signDeliveryHeaders(bodyOf(exportEvent), SECRET) } });
             assert.strictEqual(res.status, 200);
@@ -69,10 +82,16 @@ async function makeRows(t, subject, q) {
             assert.ok(part, 'the part was pushed to Network');
             assert.strictEqual(part.auth, 'Bearer tok_work', 'with this service\'s own token');
             assert.strictEqual(part.body.subject, A);
-            assert.deepStrictEqual(part.body.files.map((f) => f.name).sort(), ['saved_searches.json']);
+            assert.deepStrictEqual(part.body.files.map((f) => f.name).sort(), ['application_events.json', 'applications.json', 'saved_searches.json']);
             const saved = part.body.files.find((f) => f.name === 'saved_searches.json').content;
             assert.strictEqual(saved.length, 1);
             assert.strictEqual(saved[0].query, 'person-a');
+            const applications = part.body.files.find((f) => f.name === 'applications.json').content;
+            assert.strictEqual(applications.length, 1);
+            assert.strictEqual(applications[0].title, 'Backend Engineer');
+            const events = part.body.files.find((f) => f.name === 'application_events.json').content;
+            assert.strictEqual(events.length, 1);
+            assert.deepStrictEqual({ from: events[0].from_status, to: events[0].to_status }, { from: 'saved', to: 'applied' });
             assert.ok(!JSON.stringify(part.body).includes('person-b'), 'nobody else\'s rows');
             assert.ok(!/token|secret|password/i.test(JSON.stringify(part.body)), 'no secret is exported');
         } finally { await t.close(); await stub.close(); }
@@ -85,17 +104,27 @@ async function makeRows(t, subject, q) {
         try {
             await makeRows(t, A, 'person-a');
             await makeRows(t, B, 'person-b');
+            await makeApplication(t, A);
+            await makeApplication(t, B);
             const gone = async (subject) => await t.ctx.s.db.value('SELECT count(*)::int FROM work_saved_searches WHERE subject = $1', [`user:${subject}`]);
+            const appsGone = async (subject) => await t.ctx.s.db.value('SELECT count(*)::int FROM work_applications WHERE subject_id = $1', [`user:${subject}`]);
+            const eventsGone = async (subject) => await t.ctx.s.db.value(
+                'SELECT count(*)::int FROM work_application_events e JOIN work_applications a ON a.id = e.application_id WHERE a.subject_id = $1',
+                [`user:${subject}`]);
 
             const res = await t.get('/internal/events', { method: 'POST', body: bodyOf(deleteEvent), headers: { 'Content-Type': 'application/json', ...signDeliveryHeaders(bodyOf(deleteEvent), SECRET) } });
             assert.strictEqual(res.status, 200);
             assert.strictEqual(res.json().outcome, 'erased');
             assert.strictEqual(await gone(A), 0, 'the person\'s saved searches are gone');
             assert.strictEqual(await gone(B), 1, 'someone else\'s saved search stays');
+            assert.strictEqual(await appsGone(A), 0, 'the person\'s applications are gone');
+            assert.strictEqual(await appsGone(B), 1, 'someone else\'s application stays');
+            assert.strictEqual(await eventsGone(A), 0, 'the person\'s application events are gone');
+            assert.strictEqual(await eventsGone(B), 1, 'someone else\'s application events stay');
 
             const confirmation = stub.calls.find((c) => c.url === `/internal/account-deletions/${DEL}/confirmations`);
             assert.ok(confirmation, 'the confirmation was sent');
-            assert.deepStrictEqual(confirmation.body.erased, { work_saved_searches: 1 });
+            assert.deepStrictEqual(confirmation.body.erased, { work_saved_searches: 1, work_applications: 1 });
             assert.deepStrictEqual(confirmation.body.retained, {});
             assert.ok(!Number.isNaN(Date.parse(confirmation.body.completed_at)));
 

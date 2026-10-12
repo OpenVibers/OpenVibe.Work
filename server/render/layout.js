@@ -25,6 +25,7 @@ const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 // The product's own navigation: one entry per public page it serves.
 const NAV = [
     { label: 'Jobs', href: '/jobs' },
+    { label: 'Applications', href: '/applications', signedIn: true },
     { label: 'Sources', href: '/sources' },
     { label: 'API', href: '/docs' },
     { label: 'What shipped', href: '/updates' },
@@ -47,7 +48,7 @@ function setRelease(id) { if (id) RELEASE = String(id); }
 
 /**
  * o: title, description, body (html), viewer, config, path, index (default false), scripts [rel],
- *    crumbs [{ label, href }], jsonLd [nodes] (serialised by openvibe-shared/seo), styles [openvibe-shared stylesheet names]
+ *    crumbs [{ label, href }], jsonLd [nodes] (serialised by openvibe-shared/seo), styles [openvibe-shared stylesheet names], localStyles [this service's own extra stylesheets under public/, e.g. css/applications.css]
  */
 function renderPage(o) {
     const viewer = o.viewer || { kind: 'anonymous' };
@@ -55,10 +56,11 @@ function renderPage(o) {
     const pathNow = o.path || '/';
     const loginNext = encodeURIComponent(pathNow);
     const canonical = `${o.config.baseUrl}${pathNow.split('?')[0]}`;
+    const navLinks = NAV.filter((l) => !l.signedIn || signedIn);
     const nav = {
         service: 'work',
         apiBase: NETWORK_URL,
-        links: NAV.map((l) => ({ label: l.label, href: l.href, active: pathNow === l.href || pathNow.startsWith(`${l.href}/`) })),
+        links: navLinks.map((l) => ({ label: l.label, href: l.href, active: pathNow === l.href || pathNow.startsWith(`${l.href}/`) })),
         history: { type: 'page', title: o.title || SITE_NAME },
         silentLogin: `${o.config.baseUrl}/auth/login?silent=1&next={url}`,
         sessionUrl: '/auth/me',
@@ -85,13 +87,14 @@ function renderPage(o) {
         robots: o.index ? 'index, follow' : 'noindex, nofollow',
         jsonLd: (o.jsonLd || []).filter(Boolean),
         home: '/',
-        navLinks: NAV,
+        navLinks: navLinks.map((l) => ({ label: l.label, href: l.href })),
         navbar: nav,
         footer,
         head: `<meta name="referrer" content="${o.noReferrer ? 'no-referrer' : 'strict-origin-when-cross-origin'}">
 ${appIcon.headTags({ site: 'work' })}
 <link rel="stylesheet" href="${asset('css/app.css')}">
 ${(o.styles || []).map((name) => `<link rel="stylesheet" href="${esc(ovServe.url(name))}">`).join('\n')}
+${(o.localStyles || []).map((rel) => `<link rel="stylesheet" href="${asset(rel)}">`).join('\n')}
 ${render(scripts)}
 <meta name="ov-boost" content="work@${esc(RELEASE)}">
 <script src="${ovServe.url('boost.js')}" data-main="#main" defer></script>`,

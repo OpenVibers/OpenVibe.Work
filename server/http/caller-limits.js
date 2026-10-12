@@ -38,6 +38,7 @@ function caller(req) {
 const BUDGETS = {
     'work.jobs.search': { minute: 60, hour: 600 },
     'work.saved_searches.write': { minute: 20, hour: 200 },
+    'work.applications.write': { minute: 30, hour: 300 },
 };
 
 function createCallerLimits({ config, now = () => Date.now(), registry = null, log = console, enabled = true, valkey = null }) {

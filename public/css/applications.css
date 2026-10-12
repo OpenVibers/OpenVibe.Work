@@ -1,0 +1,36 @@
+/* OpenVibe.Work — the applications pages only (/applications, /applications/:id), so app.css stays in its budget. */
+.app-summary { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 12px 0 4px; }
+.app-summary li a, .app-summary li span { display: inline-flex; gap: 6px; align-items: baseline; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border, #1f2d47); background: var(--bg-card, #131c2e); color: var(--text-primary, #e6edf7); text-decoration: none; font-size: .9rem; }
+.app-summary li a:hover { border-color: var(--accent, #3b82f6); }
+.app-summary strong { font-size: 1rem; }
+.app-summary .is-empty { color: var(--text-muted, #7386a3); }
+.app-group { margin-top: 22px; }
+.app-group h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.app-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.app-item { border: 1px solid var(--border, #1f2d47); border-radius: 12px; background: var(--bg-card, #131c2e); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.app-item p { margin: 0; }
+.app-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.app-title a { color: var(--text-primary, #e6edf7); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+.app-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.app-co { color: var(--text-secondary, #96a7c2); }
+.app-next { font-size: .9rem; }
+.app-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.app-head h1 { margin-bottom: .2rem; }
+.app-company { margin: 0 0 14px; font-size: 1.05rem; color: var(--text-secondary, #96a7c2); overflow-wrap: anywhere; }
+.app-detail { display: grid; gap: 18px; }
+@media (min-width: 880px) { .app-detail { grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); align-items: start; } }
+.app-panel { border: 1px solid var(--border, #1f2d47); border-radius: 12px; background: var(--bg-card, #131c2e); padding: 14px 16px; }
+.app-panel h2 { margin: 0 0 10px; font-size: 1rem; }
+.app-panel + .app-panel { margin-top: 14px; }
+.app-agent { background: linear-gradient(160deg, color-mix(in srgb, var(--accent, #3b82f6) 10%, var(--bg-card, #131c2e)), var(--bg-card, #131c2e) 65%); }
+.app-history { list-style: none; margin: 0; padding: 0; }
+.app-history li { padding: 6px 0; border-bottom: 1px solid var(--border, #1f2d47); font-size: .92rem; }
+.app-history li:last-child { border-bottom: 0; }
+.app-form label { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: .88rem; color: var(--text-secondary, #96a7c2); }
+.app-form input, .app-form select, .app-form textarea { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-light, #2c3d5c); background: var(--bg-secondary, #0f1729); color: inherit; max-width: 100%; }
+.app-form textarea { resize: vertical; }
+.app-row { display: grid; gap: 0 12px; }
+@media (min-width: 560px) { .app-row { grid-template-columns: 1fr 1fr; } }
+.app-add { margin-top: 26px; max-width: 720px; }
+.app-danger { margin-top: 14px; }
+.app-danger button { background: none; border: 1px solid var(--error, #ef4444); color: var(--error, #ef4444); border-radius: 8px; padding: 6px 12px; }

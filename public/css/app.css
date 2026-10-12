@@ -91,3 +91,5 @@ button.sc-btn.sc-primary { border: 0; }
 .saved-form input, .saved-form select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #0f1729); color: inherit; }
 .source-block { border-top: 1px solid var(--border, #1f2d47); padding-top: 12px; margin-top: 18px; }
 .source-links { margin: 6px 0 12px; }
+
+.job-track { margin: 8px 0; }

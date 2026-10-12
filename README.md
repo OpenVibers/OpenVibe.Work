@@ -2,9 +2,9 @@
 
 > Find work on open job boards.
 
-**Status:** the listings and the search are live (listings gathered from three public job boards, search, saved
-searches, an API and the pages around them). The agent pillar — help preparing and tracking an application — is not
-written yet.
+**Status:** the listings, the search and the agent pillar are live (listings gathered from three public job boards,
+search, saved searches, job applications with their status history, help preparing one from the person's OpenVibe.Actor
+agent, an API and the pages around them).
 **Domain:** `openvibe.work` · **Port:** 4960 · **Service id:** `work` · **Env prefix:** `WORK`
 **License:** AGPL-3.0 (same as every OpenVibe service).
 
@@ -12,16 +12,17 @@ written yet.
 
 OpenVibe.Work is the network's job-listings service: it gathers listings from public job boards, keeps each one's
 provenance and a short plain-text excerpt, and makes them searchable without an account. A signed-in person can keep a
-search and see how many listings have appeared since they last looked. Nothing is republished — every listing links
-back to the board, where the reader reads the full listing and applies. The agent pillar (helping prepare and track an
-application) is not written yet.
+search, see how many listings have appeared since they last looked, track the jobs they apply to and ask their
+OpenVibe.Actor agent to help prepare one. Nothing is republished — every listing links back to the board, where the
+reader reads the full listing and applies.
 
 ## What it does
 
 Job listings gathered from public job boards, each one carrying its provenance — the board it came from and a link
 back to the original listing — searchable, filterable, and readable without an account. A signed-in person can keep a
-search and see how many listings have appeared since they last looked. Nothing is republished: Work stores a short
-plain-text excerpt and sends the reader to the board for the full listing and to apply.
+search, see how many listings have appeared since they last looked, track the jobs they apply to (with notes, dates,
+next steps and a status history), and ask their OpenVibe.Actor agent to help prepare an application. Nothing is
+republished: Work stores a short plain-text excerpt and sends the reader to the board for the full listing and to apply.
 
 ## What is here
 
@@ -34,8 +35,10 @@ plain-text excerpt and sends the reader to the board for the full listing and to
 | Ingest | [server/ingest/](server/ingest/) | The background read (timer, User-Agent, 15 s timeout, upsert by source + the board's id, expiry) |
 | Listings | [server/jobs/store.js](server/jobs/store.js), [migrations/0002_listings.sql](migrations/0002_listings.sql) | Search, facets, the cursor, saved searches, the fetch record |
 | Text | [server/jobs/text.js](server/jobs/text.js) | HTML → plain text, and the ~300-character excerpt that is all we keep |
-| API | [server/http/api.js](server/http/api.js) | `/api/v1`: jobs, one job, the sources, saved searches; problem+json errors |
-| Pages | [server/http/pages.js](server/http/pages.js), [server/render/](server/render/) | `/`, `/jobs`, `/jobs/:id`, `/saved`, `/sources`, `/docs`, `/updates` — server-rendered, no JavaScript needed |
+| Applications | [server/applications.js](server/applications.js), [migrations/0005_applications.sql](migrations/0005_applications.sql) | The jobs a person tracks: statuses, notes, dates, next steps and the append-only status history |
+| Actor | [server/actor.js](server/actor.js) | `POST /api/v1/tasks` on the person's OpenVibe.Actor agent with Work's own service token |
+| API | [server/http/api.js](server/http/api.js) | `/api/v1`: jobs, one job, the sources, saved searches, applications; problem+json errors |
+| Pages | [server/http/pages.js](server/http/pages.js), [server/render/](server/render/) | `/`, `/jobs`, `/jobs/:id`, `/saved`, `/applications`, `/applications/:id`, `/sources`, `/docs`, `/updates` — server-rendered, no JavaScript needed |
 | Discovery | [server/http/discovery.js](server/http/discovery.js) | `robots.txt`, `sitemap.xml` (the newest listings too), `llms.txt`, `llms-full.txt`, JSON-LD |
 | Limits | [server/http/caller-limits.js](server/http/caller-limits.js), [deploy/nginx/](deploy/nginx/) | Per-caller limits at the API (the search and the saved-search writes have their own) and per-address limits at nginx |
 | Health | [server/observability.js](server/observability.js) | `/api/health`, a truthful `/api/ready` (the database is required) and Prometheus metrics on loopback only |
@@ -53,6 +56,9 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
   kept but hidden.
 - `work_saved_searches` (0002) — a search a person saved, keyed `subject = user:usr_…`, with when they last looked.
 - `work_source_fetches` (0002) — what each board's last fetch did, so `/sources` can say when it last ran and how.
+- `work_applications` (0005) — a job application a person tracks, keyed `subject_id = user:usr_…`, with its status,
+  notes, dates, next step and the last Actor task it asked for. One per person per listing.
+- `work_application_events` (0005) — the append-only history of an application's status changes.
 - `account_data_events` (0003) — the receipts of the ADR-033 export and deletion deliveries this service applied, so a
   redelivered event changes nothing.
 
@@ -75,6 +81,9 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
 - **OpenVibe.Events** — the two account subscriptions created at boot and the delivery posted to this service's
   loopback `/internal/events` (`WORK_EVENTS_URL` or `EVENTS_URL`, `WORK_EVENTS_SECRET`, `WORK_EVENTS_ENDPOINT`,
   `WORK_EVENTS_SUBSCRIBE`).
+- **OpenVibe.Actor** — the person's agent: Work posts `POST /api/v1/tasks` with its own service token (capability
+  `actor.task.create`, audience `openvibe.actor`) when a person asks for help preparing an application
+  (`WORK_ACTOR_URL`, `WORK_ACTOR_PUBLIC_URL`, `WORK_ACTOR_TIMEOUT_MS`).
 - **The three job boards** — the only hosts the ingest fetches: Arbeitnow, Remotive and RemoteOK's public APIs
   (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`, `WORK_REMOTEOK_URL`, `WORK_USER_AGENT`).
 - **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
@@ -85,14 +94,17 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
 
 ## Capabilities
 
-The service manifest (`work`, openvibe-contracts) lists none, and [server/http/principal.js](server/http/principal.js)
-declares none either (`CAPABILITIES` is empty): no route names a capability, so an app, agent or service token cannot
-call the person-only saved-search routes (403) and the public reads need no token. Work calls no capability on another
-service.
+[server/http/principal.js](server/http/principal.js) declares one capability, `work.application.manage`: an app or
+agent token may manage job applications with it (a person needs no capability for their own). The service manifest
+(`work`, openvibe-contracts) lists it in a later contract release, proposed in
+[docs/contracts-proposal/work.application.manage.md](docs/contracts-proposal/work.application.manage.md); until then an
+app token is refused 403 with `capability.unknown`. The person-only saved-search routes still name no capability.
 
-It does use two machine-to-machine surfaces: OpenVibe.Events' subscription API (scope `events.subscription.manage`)
-to create its two account-event subscriptions at boot ([server/events-consumer.js](server/events-consumer.js)), and
-OpenVibe.Network's internal account export/deletion routes, pushed with this service's own client-credentials token
+Work calls one capability on another service: `actor.task.create` (audience `openvibe.actor`) when a person asks their
+agent to help prepare an application ([server/actor.js](server/actor.js)). It also uses two machine-to-machine
+surfaces: OpenVibe.Events' subscription API (scope `events.subscription.manage`) to create its two account-event
+subscriptions at boot ([server/events-consumer.js](server/events-consumer.js)), and OpenVibe.Network's internal account
+export/deletion routes, pushed with this service's own client-credentials token
 ([server/identity/account-data.js](server/identity/account-data.js)).
 
 ## API
@@ -106,14 +118,23 @@ OpenVibe.Network's internal account export/deletion routes, pushed with this ser
 | `GET /api/v1/saved-searches` | a person | Your saved searches, each with `new_count` — new since you last looked |
 | `POST /api/v1/saved-searches` | a person | `{ q?, remote?, type?, location? }` (at least one). 201 with the saved search |
 | `DELETE /api/v1/saved-searches/:id` | a person | Forget one. 204 |
+| `GET /api/v1/me/applications` | a person (or app with `work.application.manage`) | Your applications, filtered by `status`, newest first, cursor-paginated |
+| `POST /api/v1/me/applications` | a person (or app with `work.application.manage`) | `{ listing_id }` or `{ title, company, url }`. 201 with the application; a repeat listing answers 200 with the existing one |
+| `GET /api/v1/me/applications/:id` | a person (or app with `work.application.manage`) | One application with its status-change history |
+| `PATCH /api/v1/me/applications/:id` | a person (or app with `work.application.manage`) | `{ status?, notes?, applied_at?, next_step?, next_step_at? }`; a status change appends an event |
+| `DELETE /api/v1/me/applications/:id` | a person (or app with `work.application.manage`) | Forget one. 204 |
+| `POST /api/v1/me/applications/:id/assist` | a person | `{ ask? }` — ask the person's OpenVibe.Actor agent; `{ task_id, task_url }` |
 
 **Who can call it:** reading the listings is public. A saved search belongs to a person, so those three routes need a
 signed-in person — their Network token as a Bearer, or this site's session — and answer 401 otherwise. An app or agent
-token cannot hold one (403): a saved search is not a project's. A write made with the session cookie must come from
-`openvibe.work` itself (`request.cross_site` otherwise).
+token cannot hold one (403): a saved search is not a project's. Applications are a person's too, but an app or agent
+token with `work.application.manage` may manage them; asking the person's agent (`…/assist`) is always the person
+themselves. A write made with the session cookie must come from `openvibe.work` itself (`request.cross_site`
+otherwise).
 
 **Errors** are RFC 9457 `application/problem+json` with a stable `code` (`work.jobs.not_found`,
-`work.saved_searches.empty`, `work.saved_searches.limit`, `rate_limited`, …).
+`work.saved_searches.empty`, `work.saved_searches.limit`, `work.applications_full`, `work.actor_unavailable`,
+`rate_limited`, …).
 
 ## Data sources and their terms
 
@@ -145,6 +166,11 @@ The ingest is **off** unless `WORK_INGEST=on`, so a development run and the test
 is on, `WORK_INGEST_INTERVAL_HOURS` (6), `WORK_INGEST_PAGES` (3), `WORK_INGEST_LIMIT` (100), `WORK_INGEST_TIMEOUT_MS`
 (15000), `WORK_RETENTION_DAYS` (30) and the per-source base URLs (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`,
 `WORK_REMOTEOK_URL`) decide what it does.
+
+The agent pillar is driven by `WORK_ACTOR_URL` (default `http://127.0.0.1:4950`) — unset it (an empty value) and
+`POST …/assist` answers 503 `work.actor_unavailable` — and `WORK_ACTOR_PUBLIC_URL` (default `https://openvibe.actor`),
+the origin a `task_url` points at. `WORK_APPLICATIONS_MAX` (500) caps how many applications a person may track, and
+`WORK_APPLICATIONS_ASSISTS_PER_DAY` (10) caps how often a person may ask their agent.
 
 ## Development
 
@@ -201,14 +227,16 @@ through PostgreSQL and PgBouncer. No test reaches the internet. The main files:
 
 A person's account at OpenVibe.Network can be exported and deleted, and every service holding their rows answers its
 part (ADR-033). Work receives `network.account.export_requested` and `network.account.deleted` at `POST /internal/events`
-(loopback only) — the one table is mapped in [server/identity/account-data.js](server/identity/account-data.js), and the
-boot-time subscriptions are created by [server/events-consumer.js](server/events-consumer.js):
+(loopback only) — the person's tables are mapped in [server/identity/account-data.js](server/identity/account-data.js),
+and the boot-time subscriptions are created by [server/events-consumer.js](server/events-consumer.js):
 
-- **Exported:** the searches a person saved (`saved_searches.json`), pushed to
+- **Exported:** the searches a person saved (`saved_searches.json`), the applications they tracked (`applications.json`)
+  and each application's status history (`application_events.json`), pushed to
   `POST /internal/account-exports/:id/parts` with this service's own token. Nothing here is a secret — Work stores no
   token, key or credential.
-- **Erased:** a saved search is the person's own and nothing anyone else's page hangs under it, so it is deleted whole
-  and nothing is kept. Work then confirms with `POST /internal/account-deletions/:id/confirmations` and the counts.
+- **Erased:** a saved search and an application are the person's own and nothing anyone else's page hangs under them,
+  so they are deleted whole (an application's events go with it) and nothing is kept. Work then confirms with
+  `POST /internal/account-deletions/:id/confirmations` and the counts.
 - **Anonymized:** nothing. There is no row Work keeps that was written by this person for another person to read.
 
 The listings (`work_listings`) and the per-source fetch record (`work_source_fetches`) hold no person's rows: neither
@@ -232,9 +260,10 @@ Reporting a vulnerability: [SECURITY.md](SECURITY.md).
 
 ## Not yet
 
-- **The agent**: drafting, tailoring and tracking an application, with the person's approval at each step.
-- **Alerts**: being told when a listing that fits appears — that comes through OpenVibe.Watch with the agent pillar.
-  Today a saved search is a search you do not have to type again, plus a count of what is new.
+- **Approval at each step**: the agent help is one-shot today — Work posts a task and hands back its link. An approval
+  loop (the agent proposing an action and the person approving it) comes with the rest of the agent pillar.
+- **Alerts**: being told when a listing that fits appears — that comes through OpenVibe.Watch. Today a saved search is
+  a search you do not have to type again, plus a count of what is new.
 - More boards, and a per-source schedule finer than "the same six hours for everyone".
 
 ---
@@ -242,7 +271,7 @@ Reporting a vulnerability: [SECURITY.md](SECURITY.md).
 Part of the [OpenVibe network](https://openvibe.network). Built in the open by [OpenVibers](https://github.com/OpenVibers).
 
 <!-- versions:start -->
-- openvibe-contracts: v0.143.0
+- openvibe-contracts: v0.147.0
 - openvibe-sdk: v0.44.0
 - openvibe-shared: v4.0.2
 - openvibe-publishing: v1.4.0
