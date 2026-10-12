@@ -64,6 +64,19 @@ function load(env = process.env) {
             endpoint: env.WORK_EVENTS_ENDPOINT || '',
         },
 
+        // The agent pillar: the job applications a person tracks (server/applications.js) and the OpenVibe.Actor
+        // client they ask for help (server/actor.js). WORK_ACTOR_URL unset means "no agent": the assist route answers
+        // 503 rather than call anywhere. WORK_ACTOR_PUBLIC_URL is the human-facing link a task_url points at.
+        applications: {
+            max: Math.max(1, int(env.WORK_APPLICATIONS_MAX, 500)),
+            assistsPerDay: Math.max(1, int(env.WORK_APPLICATIONS_ASSISTS_PER_DAY, 10)),
+        },
+        actor: {
+            url: trim(env.WORK_ACTOR_URL === undefined ? 'http://127.0.0.1:4800' : env.WORK_ACTOR_URL),
+            publicUrl: trim(env.WORK_ACTOR_PUBLIC_URL || 'https://openvibe.actor'),
+            timeoutMs: Math.max(1000, int(env.WORK_ACTOR_TIMEOUT_MS, 15000)),
+        },
+
         // The public job boards the ingest reads (server/jobs/sources.js). The base URLs are configurable so a
         // test points them at a stand-in server; nothing else in the service ever fetches a URL, and never one a
         // caller typed. Their terms are quoted in the manifest that describes each source, and applied on every

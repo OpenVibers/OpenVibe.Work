@@ -23,6 +23,7 @@ const { asyncRouter } = require('./router');
 const { sameOrigin } = require('./principal');
 const store = require('../jobs/store');
 const sources = require('../jobs/sources');
+const applications = require('../applications');
 
 function createApi(ctx) {
     const { config, s, principal, limits } = ctx;
@@ -54,6 +55,25 @@ function createApi(ctx) {
                 : 'Saved searches belong to a person; an app or agent token cannot hold one. A person\'s token can.');
         return null;
     };
+
+    // Applications are a person's own; an app or agent token may manage them only with work.application.manage.
+    const requireApp = principal.requireCapability('work.application.manage');
+    // Asking the person's agent is always the person themselves: an app token cannot stand in for them.
+    const personOnly = (req, res) => {
+        if (req.principal.kind === 'user') {
+            if (req.principal.viaSession && req.method !== 'GET' && req.method !== 'HEAD' && !sameOrigin(req, config.baseUrl)) {
+                problem(req, res, 403, 'request.cross_site', 'A signed-in request that changes something must come from openvibe.work itself.');
+                return null;
+            }
+            return req.principal.requester;
+        }
+        problem(req, res, req.principal.kind === 'anonymous' ? 401 : 403, req.principal.kind === 'anonymous' ? 'token.required' : 'work.applications.person_only',
+            req.principal.kind === 'anonymous'
+                ? 'Sign in at openvibe.work to track applications, or send a person\'s Network token as a Bearer.'
+                : 'Asking your agent is yours alone; an app or agent token cannot do it for you.');
+        return null;
+    };
+    const assistLimit = ctx.assistLimiter('work.applications.assist');
 
     // ── The listings ────────────────────────────────────────
     r.get('/jobs', limits.budget('work.jobs.search'), async (req, res) => {
@@ -130,6 +150,89 @@ function createApi(ctx) {
         const gone = await store.deleteSaved(s, subject, req.params.id);
         if (!gone) return problem(req, res, 404, 'work.saved_searches.not_found', 'You have no saved search with that id.');
         return res.status(204).end();
+    });
+
+    // ── Applications ─────────────────────────────────────────
+    r.get('/me/applications', limits.reads('work.api.read'), requireApp, async (req, res) => {
+        const subject = req.principal.requester;
+        const status = req.query.status;
+        if (status != null && status !== '' && !applications.STATUSES.includes(status)) {
+            return problem(req, res, 400, 'work.applications.status_invalid', `status is one of ${applications.STATUSES.join(', ')}.`);
+        }
+        const cursor = applications.decodeCursor(req.query.cursor);
+        if (req.query.cursor && !cursor) return problem(req, res, 422, 'work.applications.cursor_invalid', 'cursor: the value the previous page returned as `next`, or absent');
+        const page = await applications.listApplications(s, subject, { status: status || null, cursor, limit: req.query.limit });
+        return res.json({
+            applications: page.rows.map(applications.toWire),
+            next: applications.encodeCursor(page.next),
+            count: page.rows.length,
+        });
+    });
+
+    r.post('/me/applications', limits.budget('work.applications.write'), requireApp, async (req, res) => {
+        const subject = req.principal.requester;
+        const v = applications.validateCreate(req.body);
+        if (v.error) return problem(req, res, v.error[0], v.error[1], v.error[2]);
+        const resolved = await applications.resolveCreateFields(s, v.fields);
+        if (resolved.error === 'listing_not_found') return problem(req, res, 404, 'work.jobs.not_found', 'No such listing to track. It may have expired from the board it came from.');
+        const fields = resolved.fields;
+        if (fields.listing_id) {
+            const existing = await applications.applicationByListing(s, subject, fields.listing_id);
+            if (existing) return res.status(200).json(applications.toWire(existing));
+        }
+        const out = await applications.createApplication(s, subject, fields, { id: s.newId('wap'), now: s.iso(), max: config.applications.max });
+        if (out.error === 'full') return problem(req, res, 409, 'work.applications_full', `You can track up to ${config.applications.max} applications; delete one first.`);
+        res.status(201).set('Location', `/api/v1/me/applications/${out.row.id}`).json(applications.toWire(out.row));
+        return undefined;
+    });
+
+    r.get('/me/applications/:id', limits.reads('work.api.read'), requireApp, async (req, res) => {
+        const subject = req.principal.requester;
+        const row = await applications.getApplication(s, subject, req.params.id);
+        if (!row) return problem(req, res, 404, 'work.applications.not_found', 'You have no application with that id.');
+        const events = await applications.listEvents(s, row.id);
+        return res.json({ ...applications.toWire(row), events: events.map(applications.toEventWire) });
+    });
+
+    r.patch('/me/applications/:id', limits.budget('work.applications.write'), requireApp, async (req, res) => {
+        const subject = req.principal.requester;
+        const v = applications.validatePatch(req.body);
+        if (v.error) return problem(req, res, v.error[0], v.error[1], v.error[2]);
+        const out = await applications.updateApplication(s, subject, req.params.id, v.fields, { now: s.iso() });
+        if (out.error === 'not_found') return problem(req, res, 404, 'work.applications.not_found', 'You have no application with that id.');
+        return res.json(applications.toWire(out.row));
+    });
+
+    r.delete('/me/applications/:id', limits.budget('work.applications.write'), requireApp, async (req, res) => {
+        const subject = req.principal.requester;
+        const gone = await applications.deleteApplication(s, subject, req.params.id);
+        if (!gone) return problem(req, res, 404, 'work.applications.not_found', 'You have no application with that id.');
+        return res.status(204).end();
+    });
+
+    r.post('/me/applications/:id/assist', assistLimit, async (req, res) => {
+        const subject = personOnly(req, res);
+        if (!subject) return undefined;
+        const app = await applications.getApplication(s, subject, req.params.id);
+        if (!app) return problem(req, res, 404, 'work.applications.not_found', 'You have no application with that id.');
+        const a = applications.validateAsk(req.body);
+        if (a.error) return problem(req, res, a.error[0], a.error[1], a.error[2]);
+        const actor = ctx.actor;
+        if (!actor || !actor.available) return problem(req, res, 503, 'work.actor_unavailable', 'The OpenVibe.Actor agent is not available right now.');
+        const n = Number(app.assists || 0) + 1;
+        const idempotencyKey = `work-assist:${app.id}:${n}`;
+        const listing = app.listing_id ? await store.getListing(s, app.listing_id) : null;
+        const task = applications.buildTaskText(app, listing, a.ask);
+        let out;
+        try {
+            out = await actor.createTask({ subjectId: subject.slice('user:'.length), task, idempotencyKey });
+        } catch (err) {
+            const status = err && err.status;
+            if (status === 402 || status === 429) return problem(req, res, 409, (err.code || 'work.actor_refused'), (err.detail || 'The agent refused this task.'));
+            return problem(req, res, 503, 'work.actor_unavailable', 'The agent could not be reached.');
+        }
+        await applications.recordAssist(s, subject, app.id, out.id, s.iso());
+        return res.json({ task_id: out.id, task_url: `${config.actor.publicUrl}/tasks/${out.id}` });
     });
 
     return r;

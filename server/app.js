@@ -34,6 +34,8 @@ const { createIngest } = require('./ingest');
 const { createSearchIndex } = require('./search-index');
 const accountDataLib = require('./identity/account-data');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
+const { createActorLimiter } = require('openvibe-sdk/limits');
+const actorLib = require('./actor');
 const { assetVersion, send } = require('./render/layout');
 const { html } = require('./render/html');
 
@@ -42,7 +44,8 @@ const VERSION = require('../package.json').version;
 
 /**
  * opts: config, store, now (clock), fetchImpl (Network), log, limitsNow, callerLimits (false: count nobody,
- * tests only), valkey, accountSend (a stand-in for Network's internal routes; tests only)
+ * tests only), valkey, accountSend (a stand-in for Network's internal routes; tests only), actor (a stand-in
+ * Actor client; tests only), assistLimitsNow (the assist rate-limit clock; tests only)
  */
 async function createApp(opts = {}) {
     const config = opts.config || configLib.load();
@@ -72,6 +75,16 @@ async function createApp(opts = {}) {
     // server/index.js starts it. The outbox relay is off until the events URL and the OAuth client secret are set.
     ctx.search = opts.search || createSearchIndex({ config, s, log });
     ctx.ingest = createIngest({ config, s, fetchImpl, log, afterRun: () => ctx.search.afterIngest() });
+
+    // The person's OpenVibe.Actor agent (server/actor.js) and the per-person daily cap on asking it. A test injects
+    // a stand-in client and clock through opts.actor / opts.assistLimitsNow, so the assist route never calls out.
+    ctx.actor = opts.actor || actorLib.create({ config, fetchImpl, log });
+    ctx.assistLimiter = opts.assistLimiter || createActorLimiter({
+        limits: { day: config.applications.assistsPerDay },
+        actor: (req) => (req.principal && req.principal.requester) || null,
+        now: opts.assistLimitsNow || (() => Date.now()),
+        log,
+    });
 
     // Account export and deletion (ADR-033, ./identity/account-data.js): the one table that holds a person's rows.
     // The sender posts to Network's internal export/deletion routes with this service's own client-credentials token;
