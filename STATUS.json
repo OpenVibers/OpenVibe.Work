@@ -37,7 +37,7 @@
     "A deployment: the service is not registered with OpenVibe.Services nor deployed by OpenVibe.Host"
   ],
   "capabilitiesRegistered": false,
-  "serviceManifestRegistered": false,
+  "serviceManifestRegistered": true,
   "deployed": true,
   "placeholderInSites": false,
   "features": [
