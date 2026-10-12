@@ -167,7 +167,7 @@ is on, `WORK_INGEST_INTERVAL_HOURS` (6), `WORK_INGEST_PAGES` (3), `WORK_INGEST_L
 (15000), `WORK_RETENTION_DAYS` (30) and the per-source base URLs (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`,
 `WORK_REMOTEOK_URL`) decide what it does.
 
-The agent pillar is driven by `WORK_ACTOR_URL` (default `http://127.0.0.1:4800`) — unset it (an empty value) and
+The agent pillar is driven by `WORK_ACTOR_URL` (default `http://127.0.0.1:4950`) — unset it (an empty value) and
 `POST …/assist` answers 503 `work.actor_unavailable` — and `WORK_ACTOR_PUBLIC_URL` (default `https://openvibe.actor`),
 the origin a `task_url` points at. `WORK_APPLICATIONS_MAX` (500) caps how many applications a person may track, and
 `WORK_APPLICATIONS_ASSISTS_PER_DAY` (10) caps how often a person may ask their agent.

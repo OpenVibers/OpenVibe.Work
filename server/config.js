@@ -72,7 +72,7 @@ function load(env = process.env) {
             assistsPerDay: Math.max(1, int(env.WORK_APPLICATIONS_ASSISTS_PER_DAY, 10)),
         },
         actor: {
-            url: trim(env.WORK_ACTOR_URL === undefined ? 'http://127.0.0.1:4800' : env.WORK_ACTOR_URL),
+            url: trim(env.WORK_ACTOR_URL === undefined ? 'http://127.0.0.1:4950' : env.WORK_ACTOR_URL),
             publicUrl: trim(env.WORK_ACTOR_PUBLIC_URL || 'https://openvibe.actor'),
             timeoutMs: Math.max(1000, int(env.WORK_ACTOR_TIMEOUT_MS, 15000)),
         },
