@@ -89,7 +89,7 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
 - **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
   `WORK_PGLITE_DIR`) and **Valkey** for shared limit counters (`VALKEY_URL`, `VALKEY_PREFIX`).
 - **Packages**: `openvibe-contracts` v0.122.1, `openvibe-sdk` v0.44.0 (`db`, `auth`, `account-data`, `limits`,
-  `valkey`, `service`) and `openvibe-shared` v4.1.5 (`frame`, `legal`, `serve`, `release`, `metrics`, `ready`,
+  `valkey`, `service`) and `openvibe-shared` v4.1.7 (`frame`, `legal`, `serve`, `release`, `metrics`, `ready`,
   `seo`, `shell`, `cache-policy`, `showcase`, `app-icon`).
 
 ## Capabilities
@@ -273,6 +273,6 @@ Part of the [OpenVibe network](https://openvibe.network). Built in the open by [
 <!-- versions:start -->
 - openvibe-contracts: v0.147.0
 - openvibe-sdk: v0.44.0
-- openvibe-shared: v4.1.5
+- openvibe-shared: v4.1.7
 - openvibe-publishing: v1.4.0
 <!-- versions:end -->
