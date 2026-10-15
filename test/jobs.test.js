@@ -91,6 +91,31 @@ const first = async (t, path) => (await t.get(path)).json();
             assert.match(html, /href="\/jobs\?[^"]*remote=true"/, 'a facet link is missing');
         });
 
+        await check('a search is an Atom feed with the same filters, and its page offers alerts through OpenVibe.Watch', async () => {
+            const r = await t.get('/jobs.atom?q=devops&remote=true');
+            assert.strictEqual(r.status, 200);
+            assert.match(r.headers.get('content-type'), /^application\/atom\+xml/);
+            assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=300');
+            assert.match(r.text, /^<\?xml version="1\.0" encoding="utf-8"\?>\n<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom">/);
+            const entries = [...r.text.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => m[1]);
+            assert.strictEqual(entries.length, 1, 'only the matching listing');
+            assert.match(entries[0], /<title>DevOps Engineer at Skyward Cloud<\/title>/);
+            assert.match(entries[0], /<link rel="alternate" type="text\/html" href="[^"]+\/jobs\/[^"]+"\/>/);
+            assert.match(entries[0], /<author><name>RemoteOK<\/name><\/author>/);
+            assert.match(r.text, /<link rel="self" href="[^"]*\/jobs\.atom\?q=devops&amp;remote=true"\/>/);
+            const all = await t.get('/jobs.atom');
+            const ids = [...all.text.matchAll(/<updated>([^<]+)<\/updated><author>/g)].map((m) => m[1]);
+            assert.ok(ids.length >= 3 && ids.join() === [...ids].sort().reverse().join(), 'every listing, newest first');
+            // The page links its feed, and Get alerts opens Watch's feed form with it filled in.
+            const page = (await t.get('/jobs?q=devops&remote=true')).text;
+            assert.ok(page.includes('<link rel="alternate" type="application/atom+xml" title="Jobs “devops” remote" href="/jobs.atom?q=devops&amp;remote=true">'), 'the feed link in the head');
+            const alert = /href="(https:\/\/openvibe\.watch\/watches\/new\?[^"]+)">Get alerts for this search/.exec(page);
+            assert.ok(alert, 'the alerts link');
+            const u = new URL(alert[1].replace(/&amp;/g, '&'));
+            assert.deepStrictEqual([u.searchParams.get('template'), new URL(u.searchParams.get('url')).pathname + new URL(u.searchParams.get('url')).search, u.searchParams.get('name')],
+                ['feed', '/jobs.atom?q=devops&remote=true', 'Jobs: “devops” remote']);
+        });
+
         await check('one listing: the board\'s fields, the excerpt, the source and "read the full listing on" link', async () => {
             const job = (await first(t, '/api/v1/jobs?q=Platform Engineer')).jobs[0];
             const r = await t.get(`/jobs/${job.id}`);

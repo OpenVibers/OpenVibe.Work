@@ -76,6 +76,8 @@ button.sc-btn.sc-primary { border: 0; }
 @media (max-width: 560px) { .job-item { grid-template-columns: 1fr; } .job-logo { display: none; } }
 @media (prefers-reduced-motion: reduce) { .job-item { transition: none; } }
 .job-pager { display: flex; gap: 12px; align-items: center; margin: 18px 0 8px; }
+.job-alert, .saved-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 14px; }
+.saved-actions { margin: 6px 0 0; }
 .job-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 16px 0; font-size: .92rem; }
 .job-facts dt { color: var(--text-secondary, #96a7c2); }
 .job-facts dd { margin: 0; overflow-wrap: anywhere; }

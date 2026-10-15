@@ -155,6 +155,45 @@ ${raw(showcase.cta({ title: 'Prefer the API?', text: 'The same search, the sourc
         });
     });
 
+    // ── Alerts: a search as an Atom feed, followed by OpenVibe.Watch ──
+    const WATCH_NEW = 'https://openvibe.watch/watches/new';
+    const describe = (filters) => [filters.q ? `“${filters.q}”` : '', filters.remote === 'true' ? 'remote' : filters.remote === 'false' ? 'on-site' : '', filters.type ? filters.type : '', filters.location ? `in ${filters.location}` : ''].filter(Boolean).join(' ');
+    const feedPath = (filters) => withFilters(filters, { cursor: null }, '/jobs.atom');
+    /** Watch's new-watch form, filled in to follow one search's feed; the person reviews and creates it on Watch. */
+    function alertHref(filters) {
+        const described = describe(filters);
+        const q = new URLSearchParams({ template: 'feed', url: `${config.baseUrl}${feedPath(filters)}`, name: `Jobs: ${described || 'every new listing'}`.slice(0, 80) });
+        return `${WATCH_NEW}?${q}`;
+    }
+    const xml = (v) => String(v == null ? '' : v).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]))
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+    const isoOf = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t).toISOString() : null; };
+
+    r.get('/jobs.atom', async (req, res) => {
+        const filters = store.filtersOf(req.query);
+        const p = await store.search(s, filters, { limit: 25 });
+        const described = describe(filters);
+        const self = `${config.baseUrl}${feedPath(filters)}`;
+        const entries = p.rows.map((row) => {
+            const l = listing.meta(row);
+            const at = isoOf(l.posted_at) || isoOf(row.fetched_at) || new Date().toISOString();
+            const where = [l.location, l.remote ? 'Remote' : '', l.job_type].filter(Boolean).join(' · ');
+            return `<entry><id>${xml(`${config.baseUrl}/jobs/${row.id}`)}</id><title>${xml(`${l.title} at ${l.company}`)}</title>`
+                + `<link rel="alternate" type="text/html" href="${xml(`${config.baseUrl}/jobs/${row.id}`)}"/><updated>${at}</updated>`
+                + `<author><name>${xml(sourceOf(row).name)}</name></author>`
+                + `<summary>${xml([where, listing.plainExcerpt(row).slice(0, 300)].filter(Boolean).join(' — '))}</summary></entry>`;
+        });
+        const updated = p.rows.length ? (isoOf(listing.meta(p.rows[0]).posted_at) || isoOf(p.rows[0].fetched_at)) : null;
+        res.set('Cache-Control', 'public, max-age=300');
+        res.type('application/atom+xml; charset=utf-8').send(`<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><id>${xml(self)}</id><title>${xml(`OpenVibe.Work: ${described ? `jobs ${described}` : 'new jobs'}`)}</title>`
+            + `<link rel="self" href="${xml(self)}"/><link rel="alternate" type="text/html" href="${xml(`${config.baseUrl}${withFilters(filters, { cursor: null }, '/jobs')}`)}"/>`
+            + `<updated>${updated || new Date().toISOString()}</updated><generator>OpenVibe.Work</generator>
+${entries.join('\n')}
+</feed>
+`);
+    });
+
     // ── Search ───────────────────────────────────────────────
     r.get('/jobs', async (req, res) => {
         const filters = store.filtersOf(req.query);
@@ -162,15 +201,17 @@ ${raw(showcase.cta({ title: 'Prefer the API?', text: 'The same search, the sourc
         // A cursor we did not write is not a position in the result set; start from the top rather than guess.
         const p = await store.search(s, filters, { cursor });
         const nextUrl = p.next ? withFilters(filters, { cursor: store.encodeCursor(p.next) }, '/jobs') : null;
-        const described = [filters.q ? `“${filters.q}”` : '', filters.remote === 'true' ? 'remote' : filters.remote === 'false' ? 'on-site' : '', filters.type ? filters.type : '', filters.location ? `in ${filters.location}` : ''].filter(Boolean).join(' ');
+        const described = describe(filters);
         page(req, res, {
             index: true, cache: signedIn(req) ? null : PUBLIC_CACHE,
+            feed: { title: described ? `Jobs ${described}` : 'New jobs', href: feedPath(filters) },
             title: described ? `Jobs: ${described}` : 'Jobs',
             description: `Job listings from open boards${described ? ` matching ${described}` : ''}, newest first, each with the source it came from and a link to the original listing.`,
             crumbs: [{ label: 'Jobs' }],
             styles: [showcase.STYLESHEET],
             body: html`<h1>Jobs</h1>
 ${filterForm(filters, { facets: p.facets })}
+<p class="job-alert"><a class="sc-btn" href="${alertHref(filters)}">Get alerts for this search</a> <span class="muted small">OpenVibe.Watch follows <a href="${feedPath(filters)}">its feed</a> and tells you when a new listing appears.</span></p>
 ${listing.listingList(p.rows, { sourceOf, empty: 'No listings match this search. Try fewer words, or clear a filter and search again.' })}
 <nav class="job-pager" aria-label="Pages">
 ${cursor ? html`<a class="sc-btn" href="${withFilters(filters, { cursor: null }, '/jobs')}">First page</a>` : ''}
@@ -270,10 +311,10 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
 ${withCounts.length ? html`<ul class="saved-list">${withCounts.map(({ row, count }) => html`<li class="saved-item">
 <p class="saved-query"><a href="${store.toSavedWire(row).search_path}">${describeSaved(row)}</a> <span class="badge${count ? ' ok' : ''}">${count ? `${count} new` : 'nothing new'}</span></p>
 <p class="muted small">Saved ${time(row.created_at)} · last looked ${row.last_seen_at ? time(row.last_seen_at) : 'never'}</p>
-<form method="post" action="/saved/${row.id}/delete" class="inline"><button class="sc-btn" type="submit">Forget it</button></form>
+<div class="saved-actions"><a class="sc-btn" href="${alertHref(store.filtersOf({ q: row.query, remote: row.remote, type: row.type, location: row.location }))}">Get alerts</a> <form method="post" action="/saved/${row.id}/delete" class="inline"><button class="sc-btn" type="submit">Forget it</button></form></div>
 </li>`)}</ul>` : ''}
 ${savedForm(req, initial)}
-<p class="muted small">Alerts — being told when a listing that fits appears — come later, through OpenVibe.Watch. For now a saved search is a search you do not have to type again, and a count of what is new.</p>
+<p class="muted small">Get alerts opens OpenVibe.Watch with the search's feed filled in: Watch checks it and tells you (or runs your agent) when a listing that fits appears. Every search has its feed at <code>/jobs.atom</code> with the same filters.</p>
 <p class="muted small">In code: <code>GET /api/v1/saved-searches</code>.</p>`,
         });
     });
