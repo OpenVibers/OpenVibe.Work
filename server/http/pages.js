@@ -120,6 +120,7 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
         });
         page(req, res, {
             index: true, cache: signedIn(req) ? null : PUBLIC_CACHE,
+            description: 'Jobs from open job boards, each saying where it came from and when, with saved searches, alerts through OpenVibe.Watch and an application tracker.',
             jsonLd: homeJsonLd(config),
             styles: [showcase.STYLESHEET],
             body: html`${raw(hero)}
@@ -607,6 +608,7 @@ ${raw(showcase.code({ title: 'Search, then read one', samples: [{ label: 'bash',
     r.get('/updates', (req, res) => page(req, res, {
         index: true, cache: PUBLIC_CACHE,
         title: `What shipped on ${SITE_NAME}`,
+        description: 'Every change deployed to OpenVibe.Work, newest first, from the OpenVibe network\'s shared update log.',
         body: raw(frame.updatesBody({ service: 'work', siteName: SITE_NAME }) + `<script src="${ovServe.url('shipped.js')}" defer></script>`),
     }));
 

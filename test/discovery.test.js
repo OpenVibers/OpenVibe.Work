@@ -75,6 +75,8 @@ const PRIVATE = ['/auth/', '/api/'];
 
         await check('home page: WebSite + the site\'s primary type, the same for every crawler', async () => {
             const r = await t.get('/');
+            // The home's meta description is a sentence for search results (50-160 characters), not "Name — tagline".
+            { const d = (/<meta name="description" content="([^"]*)"/.exec(r.text) || [])[1] || ''; assert.ok(d.length >= 50 && d.length <= 160 && !d.includes(' — '), `home description: ${d}`); }
             assert.strictEqual(r.status, 200);
             const blocks = [...r.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
             const types = blocks.map((b) => b['@type']);
