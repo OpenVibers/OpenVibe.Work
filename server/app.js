@@ -42,6 +42,8 @@ const { html } = require('./render/html');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const VERSION = require('../package.json').version;
+const { createHttpTelemetry } = require('openvibe-sdk/service');
+const { createPgTelemetrySink } = require('openvibe-sdk/telemetry');
 
 /**
  * opts: config, store, now (clock), fetchImpl (Network), log, limitsNow, callerLimits (false: count nobody,
@@ -66,6 +68,11 @@ async function createApp(opts = {}) {
     require('./render/layout').setRelease(release.release);
     const metrics = require('openvibe-shared/metrics').instrument(app, { service: 'work', release: release.release });
     app.locals.metrics = metrics.registry;
+    // Request telemetry (openvibe-sdk/service, plan T1): one aggregated sample per route template, method and status
+    // class each flush, stored in this service's telemetry_samples table; /shared, health, readiness and /metrics make
+    // none. server/index.js flushes it on stop and keeps the table to 30 days.
+    ctx.telemetry = createHttpTelemetry({ service: 'work', sink: opts.telemetrySink || createPgTelemetrySink({ db: s.db, log }), skipPrefixes: ['/shared'] });
+    app.use(ctx.telemetry.middleware());
     app.locals.ctx = ctx;
     const valkey = opts.valkey !== undefined ? opts.valkey : (config.valkey.url ? require('openvibe-sdk/valkey').createValkey({ url: config.valkey.url, prefix: config.valkey.prefix, log }) : null);
     ctx.valkey = valkey;
