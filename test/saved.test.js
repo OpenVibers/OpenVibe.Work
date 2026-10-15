@@ -84,6 +84,12 @@ const { boot, check, done } = require('./helpers/boot');
             const page = await t.get('/saved', { as: kim });
             assert.strictEqual(page.status, 200);
             assert.match(page.text, /1 new/);
+            // Each saved search offers alerts: Watch's feed form with that search's feed filled in.
+            const alert = /href="(https:\/\/openvibe\.watch\/watches\/new\?[^"]+)">Get alerts</.exec(page.text);
+            assert.ok(alert, 'a Get alerts link');
+            const u = new URL(alert[1].replace(/&amp;/g, '&'));
+            assert.strictEqual(u.searchParams.get('template'), 'feed');
+            assert.match(new URL(u.searchParams.get('url')).pathname, /^\/jobs\.atom$/);
             assert.strictEqual((await t.get('/api/v1/saved-searches', { as: kim })).json().saved_searches.find((x) => x.id === saved.id).new_count, 0, 'opening /saved did not clear the count');
             assert.strictEqual((await t.get('/saved', { as: kim })).text.includes('nothing new'), true);
         });

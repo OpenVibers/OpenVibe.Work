@@ -114,6 +114,7 @@ export/deletion routes, pushed with this service's own client-credentials token
 | `GET /api/v1/ping` | anyone | `{ ok: true, service: "work" }` |
 | `GET /api/v1/jobs` | anyone | Search: `q`, `remote`, `type`, `location`, `limit` (to 100), `cursor` (the `next` of the previous page). Newest first, 30 a page, with facets |
 | `GET /api/v1/jobs/:id` | anyone | One listing: the board's fields, the excerpt, the source, and `url` — the original to apply on |
+| `GET /jobs.atom` | anyone | The same search as an Atom feed (`q`, `remote`, `type`, `location`): the newest 25 listings, each linking its page here, cached 5 minutes. The search page links it in its head, and **Get alerts** (on the search page and on each saved search) opens OpenVibe.Watch's feed form with it filled in, so Watch tells you, or runs your agent, when a listing that fits appears |
 | `GET /api/v1/sources` | anyone | The boards, each one's terms as applied, its listing count and its last fetch |
 | `GET /api/v1/saved-searches` | a person | Your saved searches, each with `new_count` — new since you last looked |
 | `POST /api/v1/saved-searches` | a person | `{ q?, remote?, type?, location? }` (at least one). 201 with the saved search |
@@ -262,8 +263,6 @@ Reporting a vulnerability: [SECURITY.md](SECURITY.md).
 
 - **Approval at each step**: the agent help is one-shot today — Work posts a task and hands back its link. An approval
   loop (the agent proposing an action and the person approving it) comes with the rest of the agent pillar.
-- **Alerts**: being told when a listing that fits appears — that comes through OpenVibe.Watch. Today a saved search is
-  a search you do not have to type again, plus a count of what is new.
 - More boards, and a per-source schedule finer than "the same six hours for everyone".
 
 ---

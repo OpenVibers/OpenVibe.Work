@@ -93,6 +93,7 @@ function renderPage(o) {
         head: `<meta name="referrer" content="${o.noReferrer ? 'no-referrer' : 'strict-origin-when-cross-origin'}">
 ${appIcon.headTags({ site: 'work' })}
 <link rel="stylesheet" href="${asset('css/app.css')}">
+${o.feed ? `<link rel="alternate" type="application/atom+xml" title="${esc(o.feed.title)}" href="${esc(o.feed.href)}">` : ''}
 ${(o.styles || []).map((name) => `<link rel="stylesheet" href="${esc(ovServe.url(name))}">`).join('\n')}
 ${(o.localStyles || []).map((rel) => `<link rel="stylesheet" href="${asset(rel)}">`).join('\n')}
 ${render(scripts)}
