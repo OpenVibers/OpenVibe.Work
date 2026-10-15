@@ -31,6 +31,7 @@ const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
 const { createCallerLimits } = require('./http/caller-limits');
 const { createIngest } = require('./ingest');
+const { createIndexNow } = require('openvibe-shared/indexnow');
 const { createSearchIndex } = require('./search-index');
 const accountDataLib = require('./identity/account-data');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
@@ -74,7 +75,16 @@ async function createApp(opts = {}) {
     // Listing pages in OpenVibe.Search (./search-index.js): swept after every ingest run, and on its own timer once
     // server/index.js starts it. The outbox relay is off until the events URL and the OAuth client secret are set.
     ctx.search = opts.search || createSearchIndex({ config, s, log });
-    ctx.ingest = createIngest({ config, s, fetchImpl, log, afterRun: () => ctx.search.afterIngest() });
+    // IndexNow (openvibe-shared/indexnow): off without INDEXNOW_KEY; a malformed key is a configuration mistake, not
+    // a reason to leave the site down, so it warns and runs with IndexNow off.
+    ctx.indexnow = opts.indexnow || (() => {
+        const warn = (...a) => (log.warn || console.warn)(...a);
+        try { return createIndexNow({ host: config.baseUrl, key: config.indexnow.key, fetch: fetchImpl, log: warn }); } catch (err) {
+            warn(`[Work] ${err.message} — IndexNow is off until INDEXNOW_KEY is fixed`);
+            return createIndexNow({ host: config.baseUrl, key: '', fetch: fetchImpl, log: warn });
+        }
+    })();
+    ctx.ingest = createIngest({ config, s, fetchImpl, log, afterRun: () => ctx.search.afterIngest(), indexnow: ctx.indexnow });
 
     // The person's OpenVibe.Actor agent (server/actor.js) and the per-person daily cap on asking it. A test injects
     // a stand-in client and clock through opts.actor / opts.assistLimitsNow, so the assist route never calls out.
@@ -145,6 +155,8 @@ async function createApp(opts = {}) {
 
     // ── Static assets (content-hashed ?v= → immutable) ──────
     app.use('/shared', require('openvibe-shared/serve').handler());
+    // GET /<key>.txt — the IndexNow key file, only when a key is configured.
+    if (ctx.indexnow.enabled) app.use(ctx.indexnow.keyFile);
     app.use(express.static(PUBLIC_DIR, {
         index: false, redirect: false,
         setHeaders(res, filePath) {

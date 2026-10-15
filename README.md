@@ -39,7 +39,7 @@ republished: Work stores a short plain-text excerpt and sends the reader to the 
 | Actor | [server/actor.js](server/actor.js) | `POST /api/v1/tasks` on the person's OpenVibe.Actor agent with Work's own service token |
 | API | [server/http/api.js](server/http/api.js) | `/api/v1`: jobs, one job, the sources, saved searches, applications; problem+json errors |
 | Pages | [server/http/pages.js](server/http/pages.js), [server/render/](server/render/) | `/`, `/jobs`, `/jobs/:id`, `/saved`, `/applications`, `/applications/:id`, `/sources`, `/docs`, `/updates` — server-rendered, no JavaScript needed |
-| Discovery | [server/http/discovery.js](server/http/discovery.js) | `robots.txt`, `sitemap.xml` (the newest listings too), `llms.txt`, `llms-full.txt`, JSON-LD |
+| Discovery | [server/http/discovery.js](server/http/discovery.js) | `robots.txt`, `sitemap.xml` (the newest listings too), `llms.txt`, `llms-full.txt`, JSON-LD; with `INDEXNOW_KEY`, each ingest run's new listings are sent to IndexNow |
 | Limits | [server/http/caller-limits.js](server/http/caller-limits.js), [deploy/nginx/](deploy/nginx/) | Per-caller limits at the API (the search and the saved-search writes have their own) and per-address limits at nginx |
 | Health | [server/observability.js](server/observability.js) | `/api/health`, a truthful `/api/ready` (the database is required) and Prometheus metrics on loopback only |
 | Database | [server/db.js](server/db.js), [migrations/](migrations/) | PostgreSQL through `openvibe-sdk/db`; `NNNN_*.sql` applied at boot; PGlite in development |

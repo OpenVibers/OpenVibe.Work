@@ -89,6 +89,9 @@ function load(env = process.env) {
         // The background ingest (server/ingest/): off unless WORK_INGEST=on, so a test and a development run
         // never call a job board. Once on, each source is fetched at most every intervalMs (Remotive's terms
         // allow about four calls a day: six hours is exactly four), and listings not seen for retentionDays go.
+        // IndexNow (openvibe-shared/indexnow): with a key, search engines hear about each listing an ingest run
+        // adds (and the sitemap) in one batched POST; unset → off.
+        indexnow: { key: String(env.INDEXNOW_KEY || '').trim() },
         ingest: {
             enabled: String(env.WORK_INGEST || '').toLowerCase() === 'on',
             intervalMs: Math.max(1, num(env.WORK_INGEST_INTERVAL_HOURS, 6)) * 3_600_000,

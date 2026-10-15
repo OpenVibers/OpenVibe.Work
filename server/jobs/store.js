@@ -170,11 +170,12 @@ function newCountSql() {
 // ── ingest writes ───────────────────────────────────────────
 /**
  * Upsert one source's listings. A listing the board still shows is updated in place and its last_seen_at moves; one
- * that reappears after expiring comes back (expired = false). Returns { seen, added, updated }.
+ * that reappears after expiring comes back (expired = false). Returns { seen, added, updated, addedIds }.
  */
 async function upsertListings(s, rows, { sourceId, fetchedAt }) {
     let added = 0;
     let updated = 0;
+    const addedIds = [];
     await s.tx(async () => {
         for (const row of rows) {
             const out = await s.db.maybe(
@@ -188,10 +189,10 @@ async function upsertListings(s, rows, { sourceId, fetchedAt }) {
                      expired = false
                  RETURNING (xmax = 0) AS inserted`,
                 [row.id, row.source, row.source_id, row.url, row.title, row.company, row.location, row.remote, row.tags, row.job_type, row.salary, row.excerpt, row.search_text, row.posted_at, row.sort_at, fetchedAt]);
-            if (out && out.inserted) added++; else updated++;
+            if (out && out.inserted) { added++; addedIds.push(row.id); } else updated++;
         }
     });
-    return { seen: rows.length, added, updated };
+    return { seen: rows.length, added, updated, addedIds };
 }
 
 /** A source's fetch record: started now, finished when it finished, with what happened. */

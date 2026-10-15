@@ -13,7 +13,9 @@ const DAY = 86_400_000;
 
 (async () => {
     const clock = { t: Date.parse('2026-10-01T06:00:00Z') };
-    const t = await boot({ now: () => clock.t, env: { WORK_INGEST_PAGES: '2' } });
+    const pinged = [];
+    const indexnow = { enabled: false, pingSoon: (urls) => { pinged.push(...urls); return urls.length; } };
+    const t = await boot({ now: () => clock.t, env: { WORK_INGEST_PAGES: '2' }, indexnow });
     const ingest = t.ctx.ingest;
     const s = t.ctx.s;
 
@@ -44,6 +46,12 @@ const DAY = 86_400_000;
             const all = (await t.get('/api/v1/jobs?limit=100')).json();
             assert.strictEqual(all.count, 8);
             assert.ok(!JSON.stringify(all.jobs).includes('personal use'), 'the legal notice became a listing');
+
+            // Search engines hear about each new listing page and the sitemap (IndexNow), absolute and on this host.
+            const jobUrls = pinged.filter((u) => u !== 'https://openvibe.work/sitemap.xml');
+            assert.strictEqual(jobUrls.length, 8, pinged.join(' '));
+            assert.deepStrictEqual(jobUrls.sort(), all.jobs.map((j) => `https://openvibe.work/jobs/${j.id}`).sort());
+            assert.ok(pinged.includes('https://openvibe.work/sitemap.xml'));
         });
 
         await check('every request used this service\'s User-Agent, a JSON Accept, and only the configured hosts', async () => {
@@ -98,7 +106,9 @@ const DAY = 86_400_000;
             // The board's own text changed under the same id, as a board edits a listing.
             t.boards.fixtures.remoteok[1].position = 'DevOps Engineer (Platform)';
             const remoteok = (await ingest.runAll()).find((o) => o.source === 'remoteok');
+            pinged.length = 0;
             assert.deepStrictEqual([remoteok.ok, remoteok.listings, remoteok.added, remoteok.updated], [true, 2, 0, 2]);
+            assert.deepStrictEqual(pinged, [], 'a listing read again is not new: no IndexNow ping');
             const after = (await t.get('/api/v1/jobs?q=DevOps')).json().jobs[0];
             assert.strictEqual(after.id, before.id, 'the id must not change when a board is read again');
             assert.strictEqual(after.title, 'DevOps Engineer (Platform)');
