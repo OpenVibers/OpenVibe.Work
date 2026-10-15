@@ -36,7 +36,7 @@ async function fetchJson(url, { fetchImpl, timeoutMs, userAgent }) {
 
 const TICK_MS = 3_600_000;
 
-function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, afterRun = null }) {
+function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, afterRun = null, indexnow = null }) {
     const timers = new Map();
     let running = false;
 
@@ -63,6 +63,10 @@ function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, 
             listings = out.seen;
             await store.finishFetch(s, source.id, { ok: true, listings, error: null, finishedAt: s.iso() });
             log.log(`[Ingest] ${source.name}: ${listings} listings (${out.added} new, ${out.updated} updated)`);
+            // Search engines hear about the new listing pages (and the sitemap) in one batch (openvibe-shared/indexnow).
+            if (indexnow && out.addedIds.length) {
+                indexnow.pingSoon([...out.addedIds.map((id) => `${config.baseUrl}/jobs/${encodeURIComponent(id)}`), `${config.baseUrl}/sitemap.xml`]);
+            }
             return { ok: true, listings, added: out.added, updated: out.updated, rows };
         } catch (err) {
             const detail = (err && err.message) || String(err);
