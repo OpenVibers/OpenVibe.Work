@@ -114,7 +114,7 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
             eyebrow: `${SITE_NAME} · job listings with their provenance`,
             title: 'Find work.',
             accent: 'Every listing shows where it came from.',
-            lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look: sign in only to keep a search. An agent that helps you apply comes next.`,
+            lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look. Sign in to keep searches, track the jobs you apply to, and have your OpenVibe.Actor agent help prepare each application.`,
             actions: [{ label: 'Search the listings', href: '#search', primary: true }, { label: 'Where they come from', href: '/sources' }],
             note: 'Open source (AGPL-3.0). Listings are shown with the source named and a link to the original — read the full listing there.',
         });
