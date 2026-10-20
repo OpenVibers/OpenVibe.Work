@@ -89,17 +89,17 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
   (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`, `WORK_REMOTEOK_URL`, `WORK_USER_AGENT`).
 - **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
   `WORK_PGLITE_DIR`) and **Valkey** for shared limit counters (`VALKEY_URL`, `VALKEY_PREFIX`).
-- **Packages**: `openvibe-contracts` v0.122.1, `openvibe-sdk` v0.50.1 (`db`, `auth`, `account-data`, `limits`,
+- **Packages**: `openvibe-contracts` v0.200.0, `openvibe-sdk` v0.50.1 (`db`, `auth`, `account-data`, `limits`,
   `valkey`, `service`) and `openvibe-shared` v4.4.0 (`frame`, `legal`, `serve`, `release`, `metrics`, `ready`,
   `seo`, `shell`, `cache-policy`, `showcase`, `app-icon`).
 
 ## Capabilities
 
 [server/http/principal.js](server/http/principal.js) declares one capability, `work.application.manage`: an app or
-agent token may manage job applications with it (a person needs no capability for their own). The service manifest
-(`work`, openvibe-contracts) lists it in a later contract release, proposed in
-[docs/contracts-proposal/work.application.manage.md](docs/contracts-proposal/work.application.manage.md); until then an
-app token is refused 403 with `capability.unknown`. The person-only saved-search routes still name no capability.
+agent token may manage job applications with it for the person it acts for (a person needs no capability for their
+own). The service manifest (`work`, openvibe-contracts) has listed it since 0.147.0, from the proposal in
+[docs/contracts-proposal/work.application.manage.md](docs/contracts-proposal/work.application.manage.md). The
+person-only saved-search routes still name no capability.
 
 Work calls one capability on another service: `actor.task.create` (audience `openvibe.actor`) when a person asks their
 agent to help prepare an application ([server/actor.js](server/actor.js)). It also uses two machine-to-machine
