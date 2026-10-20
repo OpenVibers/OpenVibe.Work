@@ -3,7 +3,7 @@
   "stage": "beta",
   "code": true,
   "wave": "W20",
-  "plan": "Job listings gathered from open boards with their provenance, search and saved searches; the agent pillar comes next.",
+  "plan": "Job listings gathered from open boards with their provenance, search, saved searches with alerts through OpenVibe.Watch, and the agent pillar: tracked applications and help preparing one from the person's OpenVibe.Actor agent. Next: an approval at each step of the agent's help, and more boards.",
   "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9",
   "port": "4960",
   "domain": "openvibe.work",
@@ -16,7 +16,7 @@
     "openvibe-shared v4.4.0",
     "openvibe-publishing v1.4.0"
   ],
-  "summary": "OpenVibe.Work gathers job listings from three public job boards (Arbeitnow, Remotive, RemoteOK) under their terms — the source is named and the original listing is linked on every page, and only a short excerpt is kept. It searches them with facets, shows one listing with a schema.org JobPosting whose url is the original, and lets a signed-in person keep a search and see what is new since they last looked. Public reads need no token.",
+  "summary": "OpenVibe.Work gathers job listings from three public job boards (Arbeitnow, Remotive, RemoteOK) under their terms — the source is named and the original listing is linked on every page, and only a short excerpt is kept. It searches them with facets, shows one listing with a schema.org JobPosting whose url is the original, and lets a signed-in person keep a search, see what is new since they last looked, get alerts through OpenVibe.Watch, track the jobs they apply to with a status history, and ask their OpenVibe.Actor agent to help prepare an application. Public reads need no token.",
   "works": [
     "The ingest: three boards read on a timer (WORK_INGEST=on, off in tests and development), each with its own User-Agent, 15-second timeout, upsert by (source, source_id) and expiry after 30 days unseen",
     "The listings: provenance kept and shown (source name, link to the original, when it was fetched), a short plain-text excerpt, never the full description",
@@ -54,5 +54,5 @@
     "deploy files"
   ],
   "deployment": "openvibe-ovh: unit openvibe-work.service on 127.0.0.1:4960 (git checkout /opt/openvibe.work, env /etc/openvibe/work.env, database ov_work), deployed with `sudo ovhost deploy work`; public at https://openvibe.work since 2026-10-08.",
-  "updated": "2026-10-17"
+  "updated": "2026-10-20"
 }
