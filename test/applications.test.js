@@ -223,10 +223,13 @@ function appToken(t, cap = []) {
             const anon = await t.get('/applications');
             assert.strictEqual(anon.status, 200);
             assert.match(anon.text, /Sign in with OpenVibe/);
+            assert.match(anon.text, /rel="nofollow" href="\/auth\/login/);
 
             const listing = await firstListing();
             const before = await t.get(`/jobs/${listing.id}`);
             assert.match(before.text, /Sign in/, 'a signed-out listing page offers a sign-in for tracking');
+            // Crawlers followed each listing's sign-in link (7,954 sign-in redirects from Meta's crawler on 2026-10-20).
+            assert.match(before.text, /<a rel="nofollow" href="\/auth\/login\?next=%2Fjobs%2F/, 'the sign-in link is nofollow');
             assert.doesNotMatch(before.text, /Track this job/, 'a signed-out listing page has no tracking form');
 
             const trackedPage = await t.get(`/jobs/${listing.id}`, { as: lee });
