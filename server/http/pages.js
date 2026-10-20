@@ -254,7 +254,7 @@ ${signedIn(req)
             ? (tracked
                 ? html`<p class="job-track"><span class="badge ok">Tracked: ${STATUS_LABEL[tracked.status] || tracked.status}</span> <a href="/applications/${tracked.id}">Open your application</a></p>`
                 : html`<form class="inline" method="post" action="/jobs/${row.id}/track"><button class="sc-btn" type="submit">Track this job</button></form>`)
-            : html`<p class="muted small"><a href="/auth/login?next=%2Fjobs%2F${row.id}">Sign in</a> to track this job and ask your agent for help applying.</p>`}
+            : html`<p class="muted small"><a rel="nofollow" href="/auth/login?next=%2Fjobs%2F${row.id}">Sign in</a> to track this job and ask your agent for help applying.</p>`}
 <dl class="job-facts">
 <dt>Source</dt><dd>${sourceLine(row)} — <a href="/sources#${src.id}">its terms as applied</a></dd>
 ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
@@ -295,7 +295,7 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
                 title: 'Saved searches',
                 body: html`<h1>Saved searches</h1>
 <p>Sign in to keep a search and see what has appeared since you last looked. Searching itself needs no account.</p>
-<p><a class="sc-btn sc-primary" href="/auth/login?next=%2Fsaved">Sign in with OpenVibe</a> <a class="sc-btn" href="/jobs">Search the listings</a></p>`,
+<p><a class="sc-btn sc-primary" rel="nofollow" href="/auth/login?next=%2Fsaved">Sign in with OpenVibe</a> <a class="sc-btn" href="/jobs">Search the listings</a></p>`,
             });
         }
         const subject = subjectOf(req);
@@ -403,7 +403,7 @@ ${events.length ? html`<ul class="app-history">${events.map((e) => html`<li>${ti
                 title: 'Applications', styles: [showcase.STYLESHEET],
                 body: html`<h1>Applications</h1>
 <p>Track the jobs you apply to, keep your notes and next steps in one place, and ask your OpenVibe.Actor agent to help you prepare each application. Sign in to begin.</p>
-<p><a class="sc-btn sc-primary" href="/auth/login?next=%2Fapplications">Sign in with OpenVibe</a> <a class="sc-btn" href="/jobs">Search the listings</a></p>`,
+<p><a class="sc-btn sc-primary" rel="nofollow" href="/auth/login?next=%2Fapplications">Sign in with OpenVibe</a> <a class="sc-btn" href="/jobs">Search the listings</a></p>`,
             });
         }
         const subject = subjectOf(req);
@@ -447,7 +447,7 @@ ${addForm()}`,
         if (!signedIn(req)) {
             return page(req, res, {
                 title: 'Application', styles: [showcase.STYLESHEET],
-                body: html`<h1>Application</h1><p>Sign in to see your applications.</p><p><a class="sc-btn sc-primary" href="/auth/login?next=%2Fapplications">Sign in with OpenVibe</a></p>`,
+                body: html`<h1>Application</h1><p>Sign in to see your applications.</p><p><a class="sc-btn sc-primary" rel="nofollow" href="/auth/login?next=%2Fapplications">Sign in with OpenVibe</a></p>`,
             });
         }
         const subject = subjectOf(req);
