@@ -229,7 +229,7 @@ const first = async (t, path) => (await t.get(path)).json();
             }
             assert.match(r.text, /no paywall/i, '"how it works" does not say what is behind a paywall (nothing)');
             for (const h of ['Browse by field', 'Jobs by city', 'Companies with the most openings', 'Questions people ask']) assert.ok(r.text.includes(h), `the home has "${h}"`);
-            assert.match(r.text, /<li><a href="\/jobs\?q=[^"]+"><b>[^<]+<\/b><span>\d+ open listings?<\/span>/, 'a company card opens a search for it, with its count');
+            assert.match(r.text, /<li><a href="\/companies\/[a-z0-9-]+"><b>[^<]+<\/b><span>\d+ open listings?<\/span>/, 'a company card opens its company page, with its count');
             assert.match(r.text, /"@type":"ItemList"/, 'the latest remote jobs are an ItemList');
         });
 
