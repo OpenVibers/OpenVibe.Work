@@ -22,6 +22,8 @@ const listing = require('../render/listing');
 const store = require('../jobs/store');
 const sources = require('../jobs/sources');
 const applications = require('../applications');
+const seo = require('openvibe-shared/seo');
+const { products } = require('openvibe-contracts');
 
 const SITE_NAME = 'OpenVibe.Work';
 const TAGLINE = 'Find work on open job boards.';
@@ -106,37 +108,70 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
     };
 
     // ── Home ─────────────────────────────────────────────────
+    // Everything here is read from the live listings: the counts, the tags and places most listings carry, the
+    // companies with the most openings, the newest remote jobs and the newest that state the pay. A block with nothing
+    // to show is left out.
+    const FAQ = ((products.get('openvibe.work') || {}).faq || []);
+    const n = (v) => Number(v || 0).toLocaleString('en-US');
+    const sentence = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
     r.get('/', async (req, res) => {
-        const [latest, counts, rows] = await Promise.all([store.listRecent(s, 6, { remote: true }), store.countsBySource(s), store.search(s, {}, { limit: 1 })]);
-        const total = rows.facets.matches;
+        const [latest, counts, sum, salaried] = await Promise.all([store.listRecent(s, 6, { remote: true }), store.countsBySource(s), store.homeSummary(s), store.listSalaried(s, 4)]);
         const fetches = await store.sourceFetches(s);
+        const total = sum.total;
+        const base = String(config.baseUrl).replace(/\/+$/, '');
         const hero = showcase.hero({
-            eyebrow: `${SITE_NAME} · job listings with their provenance`,
+            eyebrow: `${SITE_NAME} · ${TAGLINE}`,
             title: 'Find work.',
             accent: 'Every listing shows where it came from.',
-            lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look. Sign in to keep searches, track the jobs you apply to, and have your OpenVibe.Actor agent help prepare each application.`,
-            actions: [{ label: 'Search the listings', href: '#search', primary: true }, { label: 'Where they come from', href: '/sources' }],
+            lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look. Sign in to keep searches, get alerts, track the jobs you apply to, and have your OpenVibe.Actor agent help prepare each application.`,
+            actions: [{ label: 'Search the listings', href: '#search', primary: true }, { label: 'Remote jobs', href: '/jobs?remote=true' }, { label: 'Where they come from', href: '/sources' }],
             note: 'Open source (AGPL-3.0). Listings are shown with the source named and a link to the original — read the full listing there.',
         });
+        const stats = [
+            { value: total, label: total === 1 ? 'open listing' : 'open listings', href: '/jobs' },
+            { value: sum.day, label: 'new in the last day', href: '/jobs' },
+            { value: sum.week, label: 'new this week', href: '/jobs' },
+            { value: sum.companies, label: 'companies hiring', href: '#h-hiring' },
+            { value: sum.remote, label: 'remote listings', href: '/jobs?remote=true' },
+            { value: sources.SOURCES.length, label: 'job boards read', href: '/sources' },
+        ].filter((x) => x.value);
         page(req, res, {
             index: true, cache: signedIn(req) ? null : PUBLIC_CACHE,
-            description: 'Jobs from open job boards, each saying where it came from and when, with saved searches, alerts through OpenVibe.Watch and an application tracker.',
-            jsonLd: homeJsonLd(config),
-            styles: [showcase.STYLESHEET],
+            title: 'Jobs from open job boards, with sources',
+            description: `Search ${total ? `${n(total)} ` : ''}jobs from open job boards, each with its source and date, plus saved searches, alerts through OpenVibe.Watch and an application tracker.`,
+            jsonLd: [
+                ...homeJsonLd(config),
+                latest.length ? seo.jsonLd.itemList('Latest remote jobs on OpenVibe.Work', latest.map((row) => ({ name: `${row.title} at ${row.company}`, url: `${base}/jobs/${row.id}` })), { url: `${base}/jobs?remote=true` }) : null,
+                FAQ.length ? seo.jsonLd.faq(FAQ.map((f) => ({ q: f.question, a: f.answer }))) : null,
+            ],
+            styles: [showcase.STYLESHEET], localStyles: ['css/home.css'],
             body: html`${raw(hero)}
+${stats.length ? html`<ul class="home-stats" aria-label="${SITE_NAME} in numbers">${stats.map((x) => html`<li><a href="${x.href}"><b>${n(x.value)}</b><span>${x.label}</span></a></li>`)}</ul>` : ''}
 <section class="sc-sec" id="search" aria-labelledby="h-search"><h2 id="h-search">Search the listings</h2>
 ${filterForm({ q: '', remote: '', type: '', location: '' }, { action: '/jobs' })}
-<p class="muted">${total} listing${total === 1 ? '' : 's'} from ${sources.SOURCES.length} sources, newest first.</p></section>
+<p class="muted">${n(total)} listing${total === 1 ? '' : 's'} from ${sources.SOURCES.length} job boards, newest first.${sum.day ? ` ${n(sum.day)} arrived in the last day.` : ''}</p></section>
+${sum.tags.length ? html`<section class="sc-sec" aria-labelledby="h-fields"><h2 id="h-fields">Browse by field</h2>
+<p class="sc-lede">The labels the boards put on most listings right now. Each opens a search for it.</p>
+<ul class="home-cards">${sum.tags.map((t) => html`<li><a href="/jobs?${new URLSearchParams({ q: t.tag })}"><b>${sentence(t.tag)}</b><span>${n(t.count)} listing${t.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>` : ''}
+${sum.places.length ? html`<section class="sc-sec" aria-labelledby="h-places"><h2 id="h-places">Jobs by city</h2>
+<p class="sc-lede">The places most listings name. Remote jobs are <a href="/jobs?remote=true">their own search</a>.</p>
+<ul class="home-chips">${sum.places.map((p) => html`<li><a href="/jobs?${new URLSearchParams({ location: p.place })}">${p.place} <span>${n(p.count)}</span></a></li>`)}</ul></section>` : ''}
 <section class="sc-sec" aria-labelledby="h-latest"><h2 id="h-latest">Latest remote jobs</h2>
 ${listing.listingList(latest, { sourceOf, empty: 'No listings yet — the ingest has not run.' })}
 <p><a class="sc-btn" href="/jobs?remote=true">All remote listings</a></p></section>
+${salaried.length ? html`<section class="sc-sec" aria-labelledby="h-pay"><h2 id="h-pay">Newest jobs that state the pay</h2>
+<p class="sc-lede">${n(sum.salaried)} listing${sum.salaried === 1 ? '' : 's'} say what the job pays, in the board's own words.</p>
+${listing.listingList(salaried, { sourceOf, empty: '' })}</section>` : ''}
+${sum.hiring.length ? html`<section class="sc-sec" aria-labelledby="h-hiring"><h2 id="h-hiring">Companies with the most openings</h2>
+<p class="sc-lede">Counted across every board. Each opens a search for the company.</p>
+<ul class="home-cards">${sum.hiring.map((c) => html`<li><a href="/jobs?${new URLSearchParams({ q: c.company })}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>` : ''}
 <section class="sc-sec" aria-labelledby="h-sources"><h2 id="h-sources">Where the listings come from</h2>
 <p>Each source below is a public job board read through its own API, under its own terms. Every listing on this site names its source and links to the original; we keep a short excerpt and send you to the board for the rest.</p>
 ${table(['Source', 'Listings', 'Last read', 'Terms'], sources.SOURCES.map((src) => {
                 const f = fetches.get(src.id);
                 return [
                     html`<a href="${src.homepage}" rel="noopener">${src.name}</a>`,
-                    String((counts.get(src.id) || {}).count || 0),
+                    n((counts.get(src.id) || {}).count || 0),
                     f && f.finished_at ? html`${time(f.finished_at)}${f.ok ? '' : html` <span class="muted small">(the last read failed)</span>`}` : html`<span class="muted">not read yet</span>`,
                     html`${src.attribution} — <a href="/sources#${src.id}">terms as applied</a>`,
                 ];
@@ -147,11 +182,13 @@ ${raw(showcase.steps({
                     { title: 'Gathered from open boards', text: 'A background ingest reads each board\'s public API every few hours, keeps the listing\'s own id and URL, and stores a short excerpt — never the full description.' },
                     { title: 'Search it, with the source on it', text: 'Filter by text, workplace, job type and location. Every result names the board it came from and links back to it.' },
                     { title: 'Read it on the board', text: 'The listing page shows the excerpt and sends you to the original listing to read it in full and apply. Nothing is republished.' },
-                    { title: 'Keep a search', text: 'Sign in to save a search; /saved shows each one with the count of listings that appeared since you last looked.' },
+                    { title: 'Keep a search, get alerts', text: 'Sign in to save a search and see what is new since you last looked, or follow any search through OpenVibe.Watch.' },
                     { title: 'Nothing behind a paywall', text: 'Reading and searching is free and needs no account. There is no premium tier on the listings, and listings expire when a board stops showing them.' },
                     { title: 'Track your applications', text: 'Sign in and press Track this job on a listing: keep your status, notes and next steps in one place, and ask your OpenVibe.Actor agent to help prepare each application.' },
                 ],
             }))}
+${FAQ.length ? html`<section class="sc-sec" aria-labelledby="h-faq"><h2 id="h-faq">Questions people ask</h2>
+<div class="home-faq">${FAQ.map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div></section>` : ''}
 ${raw(showcase.cta({ title: 'Prefer the API?', text: 'The same search, the sources and their terms, and your saved searches over HTTP. Reading is public.', actions: [{ label: 'The API', href: '/docs' }, { label: 'The sources', href: '/sources' }] }))}`,
         });
     });

@@ -156,6 +156,56 @@ const listRecent = (s, limit = 5, { remote = false } = {}) => s.db.many(
     `SELECT * FROM work_listings WHERE expired = false${remote ? ' AND remote = true' : ''} ORDER BY sort_at DESC, id DESC LIMIT $1`,
     [Math.min(50, Math.max(1, limit))]);
 
+/**
+ * What the home page shows about the whole board, from the live listings only: how many, how many are remote, how
+ * many companies, how many arrived in the last day and week, the tags most listings carry, the places most listings
+ * name and the companies with the most listings. Held for ten minutes per store (the ingest runs every few hours), so
+ * a busy home page costs no aggregate query. A place's count is the same LIKE the location filter applies, so the
+ * number on its link is the number the search finds.
+ */
+const SUMMARY_TTL_MS = 10 * 60 * 1000;
+const summaries = new WeakMap();
+const NOT_A_PLACE = /^(remote|remote job|anywhere|worldwide|hybrid|global|europe|emea|usa|united states|united kingdom|germany|france|uk)$/i;
+async function homeSummary(s, { now = Date.now(), tags = 12, places = 12, companies = 12 } = {}) {
+    const hit = summaries.get(s);
+    if (hit && now - hit.at < SUMMARY_TTL_MS) return hit.value;
+    const iso = (ms) => new Date(ms).toISOString();
+    const totals = await s.db.maybe(
+        `SELECT count(*) AS total, count(*) FILTER (WHERE remote) AS remote, count(DISTINCT lower(company)) AS companies,
+                count(*) FILTER (WHERE first_seen_at > $1) AS day, count(*) FILTER (WHERE first_seen_at > $2) AS week,
+                count(*) FILTER (WHERE coalesce(salary, '') <> '') AS salaried
+           FROM work_listings WHERE expired = false`, [iso(now - 86400e3), iso(now - 7 * 86400e3)]);
+    const tagRows = await s.db.many(
+        `SELECT t, count(*) AS n FROM (SELECT lower(trim(unnest(string_to_array(tags, ',')))) AS t FROM work_listings WHERE expired = false) x
+          WHERE length(t) >= 3 AND t <> 'remote' GROUP BY t ORDER BY n DESC, t ASC LIMIT $1`, [tags]);
+    const placeNames = (await s.db.many(
+        `SELECT trim(split_part(location, ',', 1)) AS p, count(*) AS n FROM work_listings
+          WHERE expired = false AND coalesce(location, '') <> '' GROUP BY 1 ORDER BY n DESC, p ASC LIMIT $1`, [places * 2]))
+        .map((r) => r.p).filter((p) => p && p.length >= 3 && p.length <= 40 && !NOT_A_PLACE.test(p) && !/remote/i.test(p)).slice(0, places);
+    const placeRows = [];
+    for (const p of placeNames) {
+        placeRows.push({ place: p, count: num(await s.db.value(`SELECT count(*) AS n FROM work_listings WHERE expired = false AND ${PARAM.location(1)}`, [like(lower(p))])) });
+    }
+    placeRows.sort((a, b) => b.count - a.count || a.place.localeCompare(b.place));
+    const companyRows = await s.db.many(
+        `SELECT mode() WITHIN GROUP (ORDER BY company) AS company, count(*) AS n FROM work_listings
+          WHERE expired = false GROUP BY lower(company) ORDER BY n DESC, 1 ASC LIMIT $1`, [companies]);
+    const value = {
+        total: num(totals && totals.total), remote: num(totals && totals.remote), companies: num(totals && totals.companies),
+        day: num(totals && totals.day), week: num(totals && totals.week), salaried: num(totals && totals.salaried),
+        tags: tagRows.map((r) => ({ tag: r.t, count: num(r.n) })),
+        places: placeRows,
+        hiring: companyRows.map((r) => ({ company: r.company, count: num(r.n) })),
+    };
+    summaries.set(s, { at: now, value });
+    return value;
+}
+
+/** The newest live listings that state a salary (the board's own words). */
+const listSalaried = (s, limit = 4) => s.db.many(
+    `SELECT * FROM work_listings WHERE expired = false AND coalesce(salary, '') <> '' ORDER BY sort_at DESC, id DESC LIMIT $1`,
+    [Math.min(20, Math.max(1, limit))]);
+
 /** The ids of the newest live listings, for the sitemap: its own cap, so a big board cannot bloat the file. */
 const recentIds = (s, limit = 1000) => s.db.many(
     `SELECT id FROM work_listings WHERE expired = false ORDER BY sort_at DESC, id DESC LIMIT $1`, [Math.min(1000, Math.max(1, limit))]);
@@ -285,7 +335,7 @@ function decodeCursor(v) {
 }
 
 module.exports = {
-    search, facets, getListing, countsBySource, listRecent, recentIds, upsertListings, beginFetch, finishFetch, sourceFetches,
+    search, facets, getListing, countsBySource, listRecent, listSalaried, homeSummary, recentIds, upsertListings, beginFetch, finishFetch, sourceFetches,
     expire, listSaved, createSaved, getSaved, deleteSaved, newCount, touchSaved, toWire, toSavedWire, filtersOf,
     idOf, encodeCursor, decodeCursor, PAGE_SIZE, MAX_PAGE, MAX_SAVED, LISTING_ID,
 };
