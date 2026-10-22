@@ -33,4 +33,4 @@
 @media (min-width: 560px) { .app-row { grid-template-columns: 1fr 1fr; } }
 .app-add { margin-top: 26px; max-width: 720px; }
 .app-danger { margin-top: 14px; }
-.app-danger button { background: none; border: 1px solid var(--error, #ef4444); color: var(--error, #ef4444); border-radius: 8px; padding: 6px 12px; }
+.app-danger button { background: none; border: 1px solid var(--error, #ef4444); color: var(--error-text, var(--error, #ef4444)); border-radius: 8px; padding: 6px 12px; }
