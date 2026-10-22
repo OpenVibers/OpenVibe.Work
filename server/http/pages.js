@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Public pages: the home page, the search (/jobs), one listing (/jobs/:id), the saved searches (/saved), the sources
+ * Public pages: the home page, the search (/jobs), one listing (/jobs/:id), companies (/companies, /companies/:slug),
+ * the saved searches (/saved), the sources
  * (/sources) and the update log (/updates). Crawl artifacts (robots.txt, sitemap.xml, llms.txt, llms-full.txt,
  * JSON-LD) are http/discovery.js.
  *
@@ -20,6 +21,7 @@ const { html, raw, table, notice, time } = require('../render/html');
 const { send } = require('../render/layout');
 const listing = require('../render/listing');
 const store = require('../jobs/store');
+const companies = require('../jobs/companies');
 const sources = require('../jobs/sources');
 const applications = require('../applications');
 const seo = require('openvibe-shared/seo');
@@ -163,8 +165,9 @@ ${salaried.length ? html`<section class="sc-sec" aria-labelledby="h-pay"><h2 id=
 <p class="sc-lede">${n(sum.salaried)} listing${sum.salaried === 1 ? '' : 's'} say what the job pays, in the board's own words.</p>
 ${listing.listingList(salaried, { sourceOf, empty: '' })}</section>` : ''}
 ${sum.hiring.length ? html`<section class="sc-sec" aria-labelledby="h-hiring"><h2 id="h-hiring">Companies with the most openings</h2>
-<p class="sc-lede">Counted across every board. Each opens a search for the company.</p>
-<ul class="home-cards">${sum.hiring.map((c) => html`<li><a href="/jobs?${new URLSearchParams({ q: c.company })}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>` : ''}
+<p class="sc-lede">Counted across every board. Each opens the company's page: its openings, where they are and which boards list them.</p>
+<ul class="home-cards">${sum.hiring.map((c) => { const slug = companies.slugOf(c.company); return html`<li><a href="${slug ? `/companies/${slug}` : `/jobs?${new URLSearchParams({ q: c.company })}`}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`; })}</ul>
+<p><a href="/companies">Every company hiring</a></p></section>` : ''}
 <section class="sc-sec" aria-labelledby="h-sources"><h2 id="h-sources">Where the listings come from</h2>
 <p>Each source below is a public job board read through its own API, under its own terms. Every listing on this site names its source and links to the original; we keep a short excerpt and send you to the board for the rest.</p>
 ${table(['Source', 'Listings', 'Last read', 'Terms'], sources.SOURCES.map((src) => {
@@ -280,7 +283,7 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
             jsonLd: [listing.jobPosting(row, { siteUrl: config.baseUrl })],
             body: html`<article class="job">
 <h1>${l.title}</h1>
-<p class="job-meta"><span class="job-company">${l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${l.job_type}</span>` : ''}</p>
+<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${l.job_type}</span>` : ''}</p>
 ${l.salary ? html`<p class="job-salary"><strong>Salary:</strong> ${l.salary} <span class="muted small">(as the board gives it)</span></p>` : ''}
 ${l.tags.length ? html`<ul class="job-tags">${l.tags.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
 <section class="job-excerpt-block" aria-labelledby="h-excerpt"><h2 id="h-excerpt">Excerpt</h2>
@@ -325,6 +328,56 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
         const bits = [row.query ? `“${row.query}”` : '', row.remote === 'true' ? 'remote' : row.remote === 'false' ? 'on-site' : '', row.type ? row.type : '', row.location ? `in ${row.location}` : ''].filter(Boolean);
         return bits.length ? bits.join(' ') : 'everything';
     };
+
+    // ── Companies: every company with open listings, and one page each ──
+    // A company page with fewer than three openings is noindex (thin); the index lists the 300 with the most and finds
+    // any of them by name.
+    const COMPANY_INDEX_MIN = 3;
+    r.get('/companies', async (req, res) => {
+        const all = await companies.list(s);
+        const q = typeof req.query.q === 'string' ? req.query.q.replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+        const shown = (q ? all.filter((c) => c.company.toLowerCase().includes(q.toLowerCase()) || c.slug.includes(companies.slugOf(q))) : all).slice(0, 300);
+        const base = String(config.baseUrl).replace(/\/+$/, '');
+        page(req, res, {
+            index: !q, cache: signedIn(req) ? null : PUBLIC_CACHE,
+            title: q ? `Companies matching “${q}”` : 'Companies hiring',
+            description: `${n(all.length)} companies with open listings on OpenVibe.Work, most openings first, each with its jobs, where they are and which boards list them.`,
+            crumbs: [{ label: 'Companies' }], styles: [showcase.STYLESHEET],
+            jsonLd: q ? [] : [seo.jsonLd.itemList('Companies hiring on OpenVibe.Work', shown.slice(0, 50).map((c) => ({ name: `${c.company}: ${c.count} open listing${c.count === 1 ? '' : 's'}`, url: `${base}/companies/${c.slug}` })), { url: `${base}/companies` })],
+            body: html`<h1>Companies hiring</h1>
+<p class="lede">${n(all.length)} companies have open listings on the boards OpenVibe.Work reads, most openings first.</p>
+<form class="ov-form filter-form" method="get" action="/companies" role="search"><label for="cq">Company</label><input id="cq" name="q" type="search" value="${q}" maxlength="80" placeholder="A company's name"><button class="sc-btn" type="submit">Find</button>${q ? html` <a href="/companies">All companies</a>` : ''}</form>
+${shown.length ? html`<ul class="home-cards">${shown.map((c) => html`<li><a href="/companies/${c.slug}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}${c.remote ? html`, ${n(c.remote)} remote` : ''}</span></a></li>`)}</ul>`
+        : notice(q ? 'No company with open listings matches that name.' : 'No open listings yet.', 'warn')}
+${!q && all.length > shown.length ? html`<p class="muted small">The ${n(shown.length)} with the most openings. Find any other by name above.</p>` : ''}`,
+        });
+    });
+
+    r.get('/companies/:slug', async (req, res) => {
+        const c = await companies.bySlug(s, req.params.slug);
+        if (!c) {
+            return page(req, res, {
+                title: 'No open listings', crumbs: [{ label: 'Companies', href: '/companies' }, { label: 'Not found' }],
+                body: html`<h1>No open listings</h1><p>No company here has open listings at that address. A company's page goes once the boards stop showing its listings.</p><p><a href="/companies">Every company hiring</a></p>`,
+            }, 404);
+        }
+        const base = String(config.baseUrl).replace(/\/+$/, '');
+        const boards = c.sources.map((x) => { const src = sources.byId(x.source); return html`<a href="/sources#${x.source}">${src ? src.name : x.source}</a> (${n(x.count)})`; });
+        page(req, res, {
+            index: c.count >= COMPANY_INDEX_MIN, cache: signedIn(req) ? null : PUBLIC_CACHE,
+            title: `Jobs at ${c.company}`,
+            description: `${n(c.count)} open listing${c.count === 1 ? '' : 's'} at ${c.company}${c.remote ? `, ${n(c.remote)} remote` : ''}${c.places.length ? `, in ${c.places.slice(0, 3).map((p) => p.place).join(', ')}` : ''}, from the boards OpenVibe.Work reads, each linking back to the original listing.`.slice(0, 300),
+            crumbs: [{ label: 'Companies', href: '/companies' }, { label: c.company }], styles: [showcase.STYLESHEET],
+            jsonLd: [seo.jsonLd.itemList(`Jobs at ${c.company}`, c.rows.slice(0, 50).map((row) => ({ name: `${row.title} at ${row.company}`, url: `${base}/jobs/${row.id}` })), { url: `${base}/companies/${c.slug}` })],
+            body: html`<h1>Jobs at ${c.company}</h1>
+<p class="lede">${n(c.count)} open listing${c.count === 1 ? '' : 's'}${c.remote ? html`, ${n(c.remote)} of them remote` : ''}${c.salaried ? html`, ${n(c.salaried)} stating the pay` : ''}. Listed on ${boards.length > 1 ? html`${boards.slice(0, -1).map((b, i) => html`${i ? ', ' : ''}${b}`)} and ${boards[boards.length - 1]}` : boards[0]}.</p>
+${c.places.length ? html`<p class="small">Where: ${c.places.map((p, i) => html`${i ? ', ' : ''}<a href="/jobs?${new URLSearchParams({ q: c.company, location: p.place })}">${p.place}</a> (${n(p.count)})`)}</p>` : ''}
+<p class="job-alert"><a class="sc-btn" href="${alertHref(store.filtersOf({ q: c.company }))}">Get alerts for ${c.company}</a></p>
+${listing.listingList(c.rows, { sourceOf, empty: 'No open listings.' })}
+${c.count > c.rows.length ? html`<p><a class="sc-btn" href="/jobs?${new URLSearchParams({ q: c.company })}">All ${n(c.count)} in the search</a></p>` : ''}
+<p class="muted small">The company's name as the boards write it. Read each full listing on its board: every entry links back to it.</p>`,
+        });
+    });
 
     r.get('/saved', async (req, res) => {
         if (!signedIn(req)) {

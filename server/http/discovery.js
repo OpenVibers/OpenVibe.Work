@@ -15,6 +15,7 @@ const seo = require('openvibe-shared/seo');
 const cache = require('openvibe-shared/cache-policy');
 const { asyncRouter } = require('./router');
 const store = require('../jobs/store');
+const companies = require('../jobs/companies');
 const sources = require('../jobs/sources');
 
 const SITE_NAME = 'OpenVibe.Work';
@@ -25,6 +26,7 @@ const SITEMAP_JOBS = 1000;
 const PAGE_TEXT = {
     '/': ['OpenVibe.Work home', 'OpenVibe.Work gathers job listings from public job boards, names the source of every one and links back to the original listing. Search is free and needs no account.'],
     '/jobs': ['Jobs', 'Search job listings gathered from Arbeitnow, Remotive and RemoteOK, newest first, filterable by words, workplace, job type and location.'],
+    '/companies': ['Companies hiring', 'Every company with open listings on the boards OpenVibe.Work reads, most openings first, each with a page of its jobs, where they are and which boards list them.'],
     '/sources': ['Sources', 'The public job boards OpenVibe.Work gathers from, the terms each is used under as applied here, and when each was last read.'],
     '/docs': ['API', 'The OpenVibe.Work API: search the listings, read one with its provenance, list the sources and their terms, keep saved searches.'],
     '/updates': ['What shipped on OpenVibe.Work', 'This site\'s update log, from the network changelog feed.'],
@@ -50,6 +52,7 @@ function homeJsonLd(config) {
 const publicPages = () => [
     { path: '/', changefreq: 'daily', priority: 1.0 },
     { path: '/jobs', changefreq: 'hourly', priority: 0.9 },
+    { path: '/companies', changefreq: 'daily', priority: 0.8 },
     { path: '/sources', changefreq: 'weekly', priority: 0.6 },
     { path: '/docs', changefreq: 'monthly', priority: 0.5 },
     { path: '/updates', changefreq: 'daily', priority: 0.5 },
@@ -111,6 +114,8 @@ function createDiscoveryRoutes(ctx) {
         const urls = publicPages().map((e) => ({ loc: abs(e.path), ...(lastmod ? { lastmod } : {}), changefreq: e.changefreq, priority: e.priority }));
         // The newest listings, so a crawler reaches each board's own page through ours. No lastmod: these entries turn
         // over with every ingest, and the site's own freshness is the pages above.
+        // Companies with three or more openings (a thinner page is noindex).
+        for (const c of (await companies.list(s)).filter((x) => x.count >= 3).slice(0, 2000)) urls.push({ loc: abs(`/companies/${c.slug}`), changefreq: 'daily', priority: 0.5 });
         for (const row of await store.recentIds(s, SITEMAP_JOBS)) urls.push({ loc: abs(`/jobs/${row.id}`), changefreq: 'daily', priority: 0.4 });
         res.type('application/xml').set('Cache-Control', TEXT).send(seo.sitemapXml(urls));
     });
