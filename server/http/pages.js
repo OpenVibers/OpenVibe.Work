@@ -143,7 +143,7 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
             description: `Search ${total ? `${n(total)} ` : ''}jobs from open job boards, each with its source and date, plus saved searches, alerts through OpenVibe.Watch and an application tracker.`,
             jsonLd: [
                 ...homeJsonLd(config),
-                latest.length ? seo.jsonLd.itemList('Latest remote jobs on OpenVibe.Work', latest.map((row) => ({ name: `${row.title} at ${row.company}`, url: `${base}/jobs/${row.id}` })), { url: `${base}/jobs?remote=true` }) : null,
+                latest.length ? seo.jsonLd.itemList('Latest remote jobs on OpenVibe.Work', latest.map((row) => ({ name: row.title, url: `${base}/jobs/${row.id}` })), { url: `${base}/jobs?remote=true` }) : null,
                 FAQ.length ? seo.jsonLd.faq(FAQ.map((f) => ({ q: f.question, a: f.answer }))) : null,
             ],
             styles: [showcase.STYLESHEET], localStyles: ['css/home.css'],
@@ -343,7 +343,7 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
             title: q ? `Companies matching “${q}”` : 'Companies hiring',
             description: `${n(all.length)} companies with open listings on OpenVibe.Work, most openings first, each with its jobs, where they are and which boards list them.`,
             crumbs: [{ label: 'Companies' }], styles: [showcase.STYLESHEET],
-            jsonLd: q ? [] : [seo.jsonLd.itemList('Companies hiring on OpenVibe.Work', shown.slice(0, 50).map((c) => ({ name: `${c.company}: ${c.count} open listing${c.count === 1 ? '' : 's'}`, url: `${base}/companies/${c.slug}` })), { url: `${base}/companies` })],
+            jsonLd: q ? [] : [seo.jsonLd.itemList('Companies hiring on OpenVibe.Work', shown.slice(0, 50).map((c) => ({ name: c.company, url: `${base}/companies/${c.slug}` })), { url: `${base}/companies` })],
             body: html`<h1>Companies hiring</h1>
 <p class="lede">${n(all.length)} companies have open listings on the boards OpenVibe.Work reads, most openings first.</p>
 <form class="ov-form filter-form" method="get" action="/companies" role="search"><label for="cq">Company</label><input id="cq" name="q" type="search" value="${q}" maxlength="80" placeholder="A company's name"><button class="sc-btn" type="submit">Find</button>${q ? html` <a href="/companies">All companies</a>` : ''}</form>
