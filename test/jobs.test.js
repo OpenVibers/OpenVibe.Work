@@ -231,6 +231,17 @@ const first = async (t, path) => (await t.get(path)).json();
             for (const h of ['Browse by field', 'Jobs by city', 'Companies with the most openings', 'Questions people ask']) assert.ok(r.text.includes(h), `the home has "${h}"`);
             assert.match(r.text, /<li><a href="\/companies\/[a-z0-9-]+"><b>[^<]+<\/b><span>\d+ open listings?<\/span>/, 'a company card opens its company page, with its count');
             assert.match(r.text, /"@type":"ItemList"/, 'the latest remote jobs are an ItemList');
+            // Structured data states only what the page shows: each list item's name is visible text (the release
+            // browser check fails a list whose names are not, 2026-10-23).
+            const visible = (html) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+            const itemNames = (html) => [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]))
+                .filter((d) => d['@type'] === 'ItemList').flatMap((d) => d.itemListElement.map((x) => x.name || (x.item && x.item.name)));
+            for (const page of ['/', '/companies']) {
+                const h = (await t.get(page)).text;
+                const names = itemNames(h);
+                assert.ok(names.length, `${page} has a list`);
+                for (const nm of names) assert.ok(visible(h).includes(nm), `${page}: list item "${nm}" is not on the page`);
+            }
         });
 
         await check('search is limited per caller, and past it the API says so with Retry-After', async () => {
