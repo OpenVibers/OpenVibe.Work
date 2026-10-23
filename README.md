@@ -145,7 +145,7 @@ Each board is read through its own public API, and its terms are applied on ever
 
 | Source | API | Terms, as applied here |
 |---|---|---|
-| **Arbeitnow** | `GET https://www.arbeitnow.com/api/job-board-api?page=N` | Free to use. Arbeitnow is named on every listing and the listing links to its page on arbeitnow.com. Its first pages (configurable) are read. |
+| **Arbeitnow** | `GET https://www.arbeitnow.com/api/job-board-api?page=N` | Free to use. Arbeitnow is named on every listing and the listing links to its page on arbeitnow.com. Its first pages (configurable) are read. With `WORK_ARBEITNOW_FROM=sources` Work reads none: it follows OpenVibe.Sources' `arbeitnow-job-board` items (`server/ingest/from-sources.js`), and a job the board stops showing is retired by Sources after a week. |
 | **Remotive** | `GET https://remotive.com/api/remote-jobs?limit=100` | Remotive must be named as the source and the listing linked. The API is called about four times a day — the six-hour interval is exactly that. |
 | **RemoteOK** | `GET https://remoteok.com/api` | RemoteOK must be named as the source and the listing linked. The response's first element is a legal notice, not a listing, and is skipped. |
 

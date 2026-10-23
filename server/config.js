@@ -85,6 +85,11 @@ function load(env = process.env) {
             arbeitnow: { url: trim(env.WORK_ARBEITNOW_URL || 'https://www.arbeitnow.com/api/job-board-api') },
             remotive: { url: trim(env.WORK_REMOTIVE_URL || 'https://remotive.com/api/remote-jobs') },
             remoteok: { url: trim(env.WORK_REMOTEOK_URL || 'https://remoteok.com/api') },
+            // OpenVibe.Sources (server/ingest/from-sources.js): WORK_ARBEITNOW_FROM=sources takes Arbeitnow from Sources'
+            // arbeitnow-job-board instead of the board (plan 2026-10-22, F2); it needs Sources (127.0.0.1:4720) and the
+            // OAuth client secret (Network grants Work sources.item.read). Anything else keeps Work's own fetch.
+            internalUrl: trim(env.OV_SOURCES_INTERNAL_URL == null ? 'http://127.0.0.1:4720' : env.OV_SOURCES_INTERNAL_URL),
+            arbeitnowFrom: String(env.WORK_ARBEITNOW_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
         },
         // The background ingest (server/ingest/): off unless WORK_INGEST=on, so a test and a development run
         // never call a job board. Once on, each source is fetched at most every intervalMs (Remotive's terms
