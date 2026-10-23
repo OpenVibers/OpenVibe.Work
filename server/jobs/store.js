@@ -9,6 +9,7 @@
  * index, and the LIKE pattern is a bound parameter, never built from what a caller typed.
  */
 const crypto = require('crypto');
+const places = require('./places');
 
 const PAGE_SIZE = 30;
 const MAX_PAGE = 100;
@@ -80,14 +81,15 @@ function toWire(row, { source } = {}) {
 }
 
 // The filters a caller set, as bound parameters — never string-built. Everything is a LIKE on a lowercased column,
-// and the term's own % and _ are literal characters.
+// and the term's own % and _ are literal characters. The location is a LIKE over every spelling of the place
+// (server/jobs/places.js: "munich" also finds "München"), an empty array for none.
 const PARAM = {
     q: (n) => `($${n} = '' OR search_text LIKE $${n} ESCAPE '\\')`,
     remote: (n) => `($${n} = '' OR remote = ($${n} = 'true'))`,
     type: (n) => `($${n} = '' OR lower(coalesce(job_type, '')) LIKE $${n} ESCAPE '\\')`,
-    location: (n) => `($${n} = '' OR lower(coalesce(location, '')) LIKE $${n} ESCAPE '\\')`,
+    location: (n) => `(cardinality($${n}::text[]) = 0 OR lower(coalesce(location, '')) LIKE ANY ($${n}::text[]))`,
 };
-const valueOf = { q: (f) => (f.q ? like(f.q) : ''), remote: (f) => f.remote, type: (f) => (f.type ? like(f.type) : ''), location: (f) => (f.location ? like(f.location) : '') };
+const valueOf = { q: (f) => (f.q ? like(f.q) : ''), remote: (f) => f.remote, type: (f) => (f.type ? like(f.type) : ''), location: (f) => places.patternsOf(f.location) };
 
 /**
  * One page of listings, newest first, plus the facets for the current scope. The cursor is the position of the last
@@ -166,7 +168,7 @@ const listRecent = (s, limit = 5, { remote = false } = {}) => s.db.many(
 const SUMMARY_TTL_MS = 10 * 60 * 1000;
 const summaries = new WeakMap();
 const NOT_A_PLACE = /^(remote|remote job|anywhere|worldwide|hybrid|global|europe|emea|usa|united states|united kingdom|germany|france|uk)$/i;
-async function homeSummary(s, { now = Date.now(), tags = 12, places = 12, companies = 12 } = {}) {
+async function homeSummary(s, { now = Date.now(), tags = 12, places: placeCount = 12, companies = 12 } = {}) {
     const hit = summaries.get(s);
     if (hit && now - hit.at < SUMMARY_TTL_MS) return hit.value;
     const iso = (ms) => new Date(ms).toISOString();
@@ -178,13 +180,15 @@ async function homeSummary(s, { now = Date.now(), tags = 12, places = 12, compan
     const tagRows = await s.db.many(
         `SELECT t, count(*) AS n FROM (SELECT lower(trim(unnest(string_to_array(tags, ',')))) AS t FROM work_listings WHERE expired = false) x
           WHERE length(t) >= 3 AND t <> 'remote' GROUP BY t ORDER BY n DESC, t ASC LIMIT $1`, [tags]);
-    const placeNames = (await s.db.many(
+    const placeGroups = (await s.db.many(
         `SELECT trim(split_part(location, ',', 1)) AS p, count(*) AS n FROM work_listings
-          WHERE expired = false AND coalesce(location, '') <> '' GROUP BY 1 ORDER BY n DESC, p ASC LIMIT $1`, [places * 2]))
-        .map((r) => r.p).filter((p) => p && p.length >= 3 && p.length <= 40 && !NOT_A_PLACE.test(p) && !/remote/i.test(p)).slice(0, places);
+          WHERE expired = false AND coalesce(location, '') <> '' GROUP BY 1 ORDER BY n DESC, p ASC LIMIT $1`, [placeCount * 4]))
+        .filter((r) => r.p && r.p.length >= 3 && r.p.length <= 40 && !NOT_A_PLACE.test(r.p) && !/remote|home ?office/i.test(r.p));
+    // One city once, however the boards spell it, counted with the patterns its link's search applies.
+    const placeNames = places.mergePlaces(placeGroups).map((r) => r.place).slice(0, placeCount);
     const placeRows = [];
     for (const p of placeNames) {
-        placeRows.push({ place: p, count: num(await s.db.value(`SELECT count(*) AS n FROM work_listings WHERE expired = false AND ${PARAM.location(1)}`, [like(lower(p))])) });
+        placeRows.push({ place: p, count: num(await s.db.value(`SELECT count(*) AS n FROM work_listings WHERE expired = false AND ${PARAM.location(1)}`, [places.patternsOf(p)])) });
     }
     placeRows.sort((a, b) => b.count - a.count || a.place.localeCompare(b.place));
     const companyRows = await s.db.many(

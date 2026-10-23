@@ -10,6 +10,8 @@
  * A name with no letter or digit left (only CJK, say) has no slug and no page; its listings stay in the search.
  */
 
+const { mergePlaces } = require('./places');
+
 // translate() pairs, one character each side: what the slug folds an accented letter to.
 const FOLD = [['äàáâãåā', 'a'], ['çćč', 'c'], ['ďđ', 'd'], ['ëèéêē', 'e'], ['ğ', 'g'], ['ïìíîī', 'i'], ['ł', 'l'], ['ñńň', 'n'],
     ['öòóôõøō', 'o'], ['řŕ', 'r'], ['ßśšş', 's'], ['ťţ', 't'], ['üùúûůū', 'u'], ['ýÿ', 'y'], ['źżž', 'z'], ['æ', 'a'], ['œ', 'o']];
@@ -58,13 +60,14 @@ async function bySlug(s, slug, { limit = 60 } = {}) {
     if (!totals || !num(totals.n)) return null;
     const [places, bySource, rows] = await Promise.all([
         s.db.many(`SELECT trim(split_part(location, ',', 1)) AS p, count(*) AS n FROM work_listings WHERE ${where} AND coalesce(location, '') <> ''
-                    GROUP BY 1 ORDER BY n DESC, p ASC LIMIT 12`, args),
+                    GROUP BY 1 ORDER BY n DESC, p ASC LIMIT 40`, args),
         s.db.many(`SELECT source, count(*) AS n FROM work_listings WHERE ${where} GROUP BY 1 ORDER BY n DESC, source ASC`, args),
         s.db.many(`SELECT * FROM work_listings WHERE ${where} ORDER BY sort_at DESC, id DESC LIMIT ${Math.min(200, Math.max(1, Number(limit) || 60))}`, args),
     ]);
     return {
         slug: String(slug), company: totals.company, count: num(totals.n), remote: num(totals.remote), salaried: num(totals.salaried),
-        places: places.filter((r) => r.p).map((r) => ({ place: r.p, count: num(r.n) })),
+        // One city once, however the boards spell it (server/jobs/places.js).
+        places: mergePlaces(places).slice(0, 12),
         sources: bySource.map((r) => ({ source: r.source, count: num(r.n) })),
         rows,
     };
