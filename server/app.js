@@ -31,6 +31,7 @@ const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
 const { createCallerLimits } = require('./http/caller-limits');
 const { createIngest } = require('./ingest');
+const { createFromSources } = require('./ingest/from-sources');
 const { createIndexNow } = require('openvibe-shared/indexnow');
 const { createSearchIndex } = require('./search-index');
 const accountDataLib = require('./identity/account-data');
@@ -91,7 +92,10 @@ async function createApp(opts = {}) {
             return createIndexNow({ host: config.baseUrl, key: '', fetch: fetchImpl, log: warn });
         }
     })();
-    ctx.ingest = createIngest({ config, s, fetchImpl, log, afterRun: () => ctx.search.afterIngest(), indexnow: ctx.indexnow });
+    // Arbeitnow through OpenVibe.Sources (server/ingest/from-sources.js), off unless WORK_ARBEITNOW_FROM=sources; a test
+    // passes its own Sources stand-in as opts.sourcesClient.
+    ctx.fromSources = createFromSources({ config, s, fetchImpl, log, source: opts.sourcesClient || null, afterRun: () => ctx.search.afterIngest(), indexnow: ctx.indexnow });
+    ctx.ingest = createIngest({ config, s, fetchImpl, log, afterRun: () => ctx.search.afterIngest(), indexnow: ctx.indexnow, fromSources: ctx.fromSources });
 
     // The person's OpenVibe.Actor agent (server/actor.js) and the per-person daily cap on asking it. A test injects
     // a stand-in client and clock through opts.actor / opts.assistLimitsNow, so the assist route never calls out.

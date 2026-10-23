@@ -16,7 +16,7 @@ const { startTelemetryRetention } = require('openvibe-sdk/telemetry');
 function createLifecycle({ server, ctx, exit, signals, timers = [], extra = [] }) {
     return gracefulStop({
         name: 'OpenVibe.Work', server, deadlineExitCode: 0, exit, signals, deadlineMs: 10_000,
-        close: [() => { for (const t of timers) clearInterval(t); }, () => ctx.ingest.stop(), () => ctx.search.stop(), () => ctx.keys.client.stop(), async () => { clearInterval(ctx.telemetryTick); if (ctx.retention) await ctx.retention.stop(); if (ctx.telemetry) await ctx.telemetry.stop(); }, () => ctx.s.close(), ...extra],
+        close: [() => { for (const t of timers) clearInterval(t); }, () => ctx.ingest.stop(), () => ctx.fromSources.stop(), () => ctx.search.stop(), () => ctx.keys.client.stop(), async () => { clearInterval(ctx.telemetryTick); if (ctx.retention) await ctx.retention.stop(); if (ctx.telemetry) await ctx.telemetry.stop(); }, () => ctx.s.close(), ...extra],
     });
 }
 
@@ -36,6 +36,7 @@ async function start() {
     ctx.telemetryTick.unref();
     ctx.keys.client.start();
     ctx.ingest.start();
+    ctx.fromSources.start();
     ctx.search.start();
 
     // Subscribe to the two ADR-033 topics at OpenVibe.Events (idempotent; off without WORK_EVENTS_URL and

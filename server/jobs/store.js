@@ -222,27 +222,42 @@ function newCountSql() {
  * Upsert one source's listings. A listing the board still shows is updated in place and its last_seen_at moves; one
  * that reappears after expiring comes back (expired = false). Returns { seen, added, updated, addedIds }.
  */
+/** One listing in, through `q` (the database or a transaction). → true when it is new. */
+async function upsertListing(q, row, fetchedAt) {
+    const out = await q.maybe(
+        `INSERT INTO work_listings (id, source, source_id, url, title, company, location, remote, tags, job_type, salary, excerpt, search_text, posted_at, sort_at, fetched_at, first_seen_at, last_seen_at, expired)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $16, false)
+         ON CONFLICT (source, source_id) DO UPDATE SET
+             url = EXCLUDED.url, title = EXCLUDED.title, company = EXCLUDED.company, location = EXCLUDED.location,
+             remote = EXCLUDED.remote, tags = EXCLUDED.tags, job_type = EXCLUDED.job_type, salary = EXCLUDED.salary,
+             excerpt = EXCLUDED.excerpt, search_text = EXCLUDED.search_text, posted_at = EXCLUDED.posted_at,
+             sort_at = EXCLUDED.sort_at, fetched_at = EXCLUDED.fetched_at, last_seen_at = EXCLUDED.last_seen_at,
+             expired = false
+         RETURNING (xmax = 0) AS inserted`,
+        [row.id, row.source, row.source_id, row.url, row.title, row.company, row.location, row.remote, row.tags, row.job_type, row.salary, row.excerpt, row.search_text, row.posted_at, row.sort_at, fetchedAt]);
+    return Boolean(out && out.inserted);
+}
+
 async function upsertListings(s, rows, { sourceId, fetchedAt }) {
     let added = 0;
     let updated = 0;
     const addedIds = [];
     await s.tx(async () => {
         for (const row of rows) {
-            const out = await s.db.maybe(
-                `INSERT INTO work_listings (id, source, source_id, url, title, company, location, remote, tags, job_type, salary, excerpt, search_text, posted_at, sort_at, fetched_at, first_seen_at, last_seen_at, expired)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $16, false)
-                 ON CONFLICT (source, source_id) DO UPDATE SET
-                     url = EXCLUDED.url, title = EXCLUDED.title, company = EXCLUDED.company, location = EXCLUDED.location,
-                     remote = EXCLUDED.remote, tags = EXCLUDED.tags, job_type = EXCLUDED.job_type, salary = EXCLUDED.salary,
-                     excerpt = EXCLUDED.excerpt, search_text = EXCLUDED.search_text, posted_at = EXCLUDED.posted_at,
-                     sort_at = EXCLUDED.sort_at, fetched_at = EXCLUDED.fetched_at, last_seen_at = EXCLUDED.last_seen_at,
-                     expired = false
-                 RETURNING (xmax = 0) AS inserted`,
-                [row.id, row.source, row.source_id, row.url, row.title, row.company, row.location, row.remote, row.tags, row.job_type, row.salary, row.excerpt, row.search_text, row.posted_at, row.sort_at, fetchedAt]);
-            if (out && out.inserted) { added++; addedIds.push(row.id); } else updated++;
+            if (await upsertListing(s.db, row, fetchedAt)) { added++; addedIds.push(row.id); } else updated++;
         }
     });
     return { seen: rows.length, added, updated, addedIds };
+}
+
+/** A listing its source says is gone (Sources retired or removed it): expired like one a board stopped showing. */
+const expireListing = (q, source, sourceId) => q.exec(
+    'UPDATE work_listings SET expired = true WHERE source = $1 AND source_id = $2 AND expired = false', [source, String(sourceId)]);
+
+/** How many live listings a source has (its fetch record's count when Sources feeds it). */
+async function liveCount(s, source) {
+    const r = await s.db.maybe('SELECT count(*)::int AS n FROM work_listings WHERE source = $1 AND expired = false', [source]);
+    return r ? r.n : 0;
 }
 
 /** A source's fetch record: started now, finished when it finished, with what happened. */
@@ -262,11 +277,12 @@ async function sourceFetches(s) {
 
 /**
  * Listings the boards stopped showing go. A listing not seen for `days` is expired rather than deleted: the row keeps
- * its history, the search and the pages stop offering it, and a board that shows it again brings it back.
+ * its history, the search and the pages stop offering it, and a board that shows it again brings it back. Sources
+ * named in `except` are left alone: OpenVibe.Sources feeds them and says itself when a listing is gone.
  */
-async function expire(s, days, now) {
+async function expire(s, days, now, { except = [] } = {}) {
     const cutoff = new Date(now - days * 86_400_000).toISOString();
-    return s.db.exec('UPDATE work_listings SET expired = true WHERE expired = false AND last_seen_at < $1', [cutoff]);
+    return s.db.exec('UPDATE work_listings SET expired = true WHERE expired = false AND last_seen_at < $1 AND NOT (source = ANY($2::text[]))', [cutoff, except]);
 }
 
 // ── saved searches ──────────────────────────────────────────
@@ -335,7 +351,7 @@ function decodeCursor(v) {
 }
 
 module.exports = {
-    search, facets, getListing, countsBySource, listRecent, listSalaried, homeSummary, recentIds, upsertListings, beginFetch, finishFetch, sourceFetches,
-    expire, listSaved, createSaved, getSaved, deleteSaved, newCount, touchSaved, toWire, toSavedWire, filtersOf,
+    search, facets, getListing, countsBySource, listRecent, listSalaried, homeSummary, recentIds, upsertListing, upsertListings, expireListing, liveCount,
+    beginFetch, finishFetch, sourceFetches, expire, listSaved, createSaved, getSaved, deleteSaved, newCount, touchSaved, toWire, toSavedWire, filtersOf,
     idOf, encodeCursor, decodeCursor, PAGE_SIZE, MAX_PAGE, MAX_SAVED, LISTING_ID,
 };
