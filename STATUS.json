@@ -8,11 +8,11 @@
   "port": "4960",
   "domain": "openvibe.work",
   "contracts": "openvibe-contracts v0.209.0",
-  "sdk": "openvibe-sdk v0.62.0",
+  "sdk": "openvibe-sdk v0.63.0",
   "shared": "openvibe-shared v4.10.0",
   "packages": [
     "openvibe-contracts v0.209.0",
-    "openvibe-sdk v0.62.0",
+    "openvibe-sdk v0.63.0",
     "openvibe-shared v4.10.0",
     "openvibe-publishing v1.4.0"
   ],
