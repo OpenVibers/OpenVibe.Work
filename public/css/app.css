@@ -55,7 +55,7 @@ button.sc-btn.sc-primary { border: 0; }
 .facets li.on a { border-color: var(--accent, #3b82f6); color: var(--text-primary, #e6edf7); }
 .facet-n { color: var(--text-muted, #7386a3); }
 
-.job-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.job-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .job-item { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border, #1f2d47); background: var(--bg-card, #131c2e); transition: border-color .15s, transform .15s; }
 .job-item:hover { border-color: color-mix(in srgb, var(--accent, #3b82f6) 60%, var(--border, #1f2d47)); transform: translateY(-1px); }
 .job-logo { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 1.1rem; color: hsl(var(--h) 80% 78%); background: hsl(var(--h) 45% 22%); border: 1px solid hsl(var(--h) 40% 32%); }
