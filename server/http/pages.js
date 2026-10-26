@@ -192,6 +192,7 @@ ${raw(showcase.steps({
             }))}
 ${FAQ.length ? html`<section class="sc-sec" aria-labelledby="h-faq"><h2 id="h-faq">Questions people ask</h2>
 <div class="home-faq">${FAQ.map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div></section>` : ''}
+${raw(showcase.network({ service: 'work' }))}
 ${raw(showcase.cta({ title: 'Prefer the API?', text: 'The same search, the sources and their terms, and your saved searches over HTTP. Reading is public.', actions: [{ label: 'The API', href: '/docs' }, { label: 'The sources', href: '/sources' }] }))}`,
         });
     });

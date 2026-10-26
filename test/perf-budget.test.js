@@ -17,8 +17,8 @@ const { measure, check, format } = require('openvibe-shared/perf-budget');
 // 18.2 KB raw / 4.3 KB brotli, still two stylesheets and no external file. The home page itself stayed inside its own
 // budget — the listings replace the skeleton's placeholder sections rather than adding to them.
 const BUDGETS = {
-    htmlRawKB: 27.5,   // measured 24.9 (the home page: hero, features, steps, cta, JSON-LD)
-    htmlBrotliKB: 6.9,   // 6.2
+    htmlRawKB: 36,   // 31.2 with the Part of OpenVibe section (Shared 4.13, 2026-10-26); measured 24.9 (the home page: hero, features, steps, cta, JSON-LD)
+    htmlBrotliKB: 9,   // 7.8 with the Part of OpenVibe section (Shared 4.13, 2026-10-26); 6.2
     jsFiles: 5,   // 5 (theme-loader, web-runtime, navbar, footer, boost: openvibe-shared/shell)
     jsRawKB: 269,   // 264.3 with Shared 4.13.0 (2026-10-26: account links); 239.8
     jsBrotliKB: 67,   // 65.3 Shared 4.12.0: the light/dark switch, the seasonal mark and the theme pairs; 56.5
