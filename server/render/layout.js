@@ -22,13 +22,13 @@ const NETWORK_URL = 'https://openvibe.network';
 const SITE_NAME = 'OpenVibe.Work';
 const TAGLINE = 'Find work on open job boards.';
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
-// The product's own navigation: one entry per public page it serves.
+// The product's own places: the main ones carry an icon (phones get them as the bottom tab bar), the rest fold into
+// the navbar's More (Shared 4.22). Search is the navbar's magnifier and What shipped is the footer's.
 const NAV = [
-    { label: 'Jobs', href: '/jobs' },
-    { label: 'Applications', href: '/applications', signedIn: true },
-    { label: 'Sources', href: '/sources' },
-    { label: 'API', href: '/docs' },
-    { label: 'What shipped', href: '/updates' },
+    { label: 'Jobs', href: '/jobs', icon: 'fa-id-card' },
+    { label: 'Applications', href: '/applications', icon: 'fa-list-check', signedIn: true },
+    { label: 'Sources', href: '/sources', icon: 'fa-link', more: true },
+    { label: 'API', href: '/docs', icon: 'fa-code', more: true },
 ];
 
 const hashes = new Map();
@@ -60,7 +60,8 @@ function renderPage(o) {
     const nav = {
         service: 'work',
         apiBase: NETWORK_URL,
-        links: navLinks.map((l) => ({ label: l.label, href: l.href, active: pathNow === l.href || pathNow.startsWith(`${l.href}/`) })),
+        links: navLinks.map((l) => ({ label: l.label, href: l.href, ...(l.icon ? { icon: l.icon } : {}), ...(l.more ? { more: true } : {}), active: pathNow === l.href || pathNow.startsWith(`${l.href}/`) })),
+        appBar: [{ label: 'Home', href: '/', icon: 'fa-house' }, { label: 'Jobs', href: '/jobs', icon: 'fa-id-card' }, { label: 'Sources', href: '/sources', icon: 'fa-link' }, { label: 'API', href: '/docs', icon: 'fa-code' }],   // phones: the bottom tab bar (Shared 4.20)
         history: { type: 'page', title: o.title || SITE_NAME },
         silentLogin: `${o.config.baseUrl}/auth/login?silent=1&next={url}`,
         sessionUrl: '/auth/me',
