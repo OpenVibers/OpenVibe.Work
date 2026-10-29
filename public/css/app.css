@@ -39,6 +39,9 @@ form.inline { display: inline; }
 
 /* The home page's showcase sections (openvibe-shared/showcase.css) sit inside .page, which has its own gutter. */
 .page .sc-hero, .page .sc-sec, .page .sc-cta { padding-left: 0; padding-right: 0; }
+/* The shared hero's aura is drawn 54px past its right edge; with no clip a phone scrolled sideways by ~27px
+   (2026-10-29). Clip the horizontal axis only, so vertical scrolling and the listings' own scroll areas are untouched. */
+.page { overflow-x: clip; }
 .page .sc-ic .ov-icon { --ovi-size: 28px !important; }
 button.sc-btn { background: transparent; }
 button.sc-btn.sc-primary { border: 0; }
