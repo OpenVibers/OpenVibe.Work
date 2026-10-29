@@ -139,6 +139,7 @@ const first = async (t, path) => (await t.get(path)).json();
         await check('the listing page carries a valid JobPosting whose url is the original, not this page', async () => {
             const job = (await first(t, '/api/v1/jobs?q=DevOps')).jobs[0];
             const html = (await t.get(`/jobs/${job.id}`)).text;
+            assert.strictEqual((html.match(/application\/ld\+json/g) || []).length, 1, 'one JSON-LD script per page');
             const blocks = ldBlocks(html);
             const posting = blocks.find((b) => b['@type'] === 'JobPosting');
             assert.ok(posting, `no JobPosting node: ${JSON.stringify(blocks.map((b) => b['@type']))}`);
