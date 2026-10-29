@@ -151,6 +151,8 @@ const first = async (t, path) => (await t.get(path)).json();
             assert.strictEqual(posting.identifier.name, 'remoteok');
             assert.ok(posting.description.length <= 320);
             assert.ok(posting['@context'] === 'https://schema.org');
+            // The search page lists many listings but is not one job, so it carries no JobPosting.
+            assert.ok(!ldBlocks((await t.get('/jobs')).text).some((b) => b['@type'] === 'JobPosting'), 'the listing page has no JobPosting');
             // Every JSON-LD block on the page parses (the escaping must survive a hostile title).
             assert.ok(blocks.length >= 1);
         });
