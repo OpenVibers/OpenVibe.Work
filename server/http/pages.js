@@ -126,7 +126,8 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
             title: 'Find work.',
             accent: 'Every listing shows where it came from.',
             lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look. Sign in to keep searches, get alerts, track the jobs you apply to, and have your OpenVibe.Actor agent help prepare each application.`,
-            actions: [{ label: 'Search the listings', href: '#search', primary: true }, { label: 'Remote jobs', href: '/jobs?remote=true' }, { label: 'Where they come from', href: '/sources' }],
+            // Two, so they sit side by side on a phone; where the listings come from is a section below.
+            actions: [{ label: 'Search the listings', href: '#search', primary: true }, { label: 'Remote jobs', href: '/jobs?remote=true' }],
             note: 'Open source (AGPL-3.0). Listings are shown with the source named and a link to the original — read the full listing there.',
         });
         const stats = [
@@ -154,21 +155,21 @@ ${filterForm({ q: '', remote: '', type: '', location: '' }, { action: '/jobs' })
 <p class="muted">${n(total)} listing${total === 1 ? '' : 's'} from ${sources.SOURCES.length} job boards, newest first.${sum.day ? ` ${n(sum.day)} arrived in the last day.` : ''}</p></section>
 ${sum.tags.length ? html`<section class="sc-sec" aria-labelledby="h-fields"><h2 id="h-fields">Browse by field</h2>
 <p class="sc-lede">The labels the boards put on most listings right now. Each opens a search for it.</p>
-<ul class="home-cards">${sum.tags.map((t) => html`<li><a href="/jobs?${new URLSearchParams({ q: t.tag })}"><b>${sentence(t.tag)}</b><span>${n(t.count)} listing${t.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>` : ''}
+<ul class="home-cards short">${sum.tags.map((t) => html`<li><a href="/jobs?${new URLSearchParams({ q: t.tag })}"><b>${sentence(t.tag)}</b><span>${n(t.count)} listing${t.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>` : ''}
 ${sum.places.length ? html`<section class="sc-sec" aria-labelledby="h-places"><h2 id="h-places">Jobs by city</h2>
 <p class="sc-lede">The places most listings name. Remote jobs are <a href="/jobs?remote=true">their own search</a>.</p>
 <ul class="home-chips">${sum.places.map((p) => html`<li><a href="/jobs?${new URLSearchParams({ location: p.place })}">${p.place} <span>${n(p.count)}</span></a></li>`)}</ul></section>` : ''}
-<section class="sc-sec" aria-labelledby="h-latest"><h2 id="h-latest">Latest remote jobs</h2>
+<section class="sc-sec home-row" aria-labelledby="h-latest"><h2 id="h-latest">Latest remote jobs</h2>
 ${listing.listingList(latest, { sourceOf, empty: 'No listings yet — the ingest has not run.' })}
 <p><a class="sc-btn" href="/jobs?remote=true">All remote listings</a></p></section>
-${salaried.length ? html`<section class="sc-sec" aria-labelledby="h-pay"><h2 id="h-pay">Newest jobs that state the pay</h2>
+${salaried.length ? html`<section class="sc-sec home-row" aria-labelledby="h-pay"><h2 id="h-pay">Newest jobs that state the pay</h2>
 <p class="sc-lede">${n(sum.salaried)} listing${sum.salaried === 1 ? '' : 's'} say what the job pays, in the board's own words.</p>
 ${listing.listingList(salaried, { sourceOf, empty: '' })}</section>` : ''}
 ${sum.hiring.length ? html`<section class="sc-sec" aria-labelledby="h-hiring"><h2 id="h-hiring">Companies with the most openings</h2>
 <p class="sc-lede">Counted across every board. Each opens the company's page: its openings, where they are and which boards list them.</p>
-<ul class="home-cards">${sum.hiring.map((c) => { const slug = companies.slugOf(c.company); return html`<li><a href="${slug ? `/companies/${slug}` : `/jobs?${new URLSearchParams({ q: c.company })}`}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`; })}</ul>
+<ul class="home-cards short">${sum.hiring.map((c) => { const slug = companies.slugOf(c.company); return html`<li><a href="${slug ? `/companies/${slug}` : `/jobs?${new URLSearchParams({ q: c.company })}`}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`; })}</ul>
 <p><a href="/companies">Every company hiring</a></p></section>` : ''}
-<section class="sc-sec" aria-labelledby="h-sources"><h2 id="h-sources">Where the listings come from</h2>
+<section class="sc-sec" aria-labelledby="h-sources"><details class="home-fold"><summary><h2 id="h-sources">Where the listings come from</h2><span>${sources.SOURCES.length} public boards, how it works</span></summary><div class="home-fold-body">
 <p>Each source below is a public job board read through its own API, under its own terms. Every listing on this site names its source and links to the original; we keep a short excerpt and send you to the board for the rest.</p>
 ${table(['Source', 'Listings', 'Last read', 'Terms'], sources.SOURCES.map((src) => {
                 const f = fetches.get(src.id);
@@ -178,7 +179,7 @@ ${table(['Source', 'Listings', 'Last read', 'Terms'], sources.SOURCES.map((src) 
                     f && f.finished_at ? html`${time(f.finished_at)}${f.ok ? '' : html` <span class="muted small">(the last read failed)</span>`}` : html`<span class="muted">not read yet</span>`,
                     html`${src.attribution} — <a href="/sources#${src.id}">terms as applied</a>`,
                 ];
-            }))}</section>
+            }))}</div>
 ${raw(showcase.steps({
                 title: 'How it works',
                 items: [
@@ -189,11 +190,10 @@ ${raw(showcase.steps({
                     { title: 'Nothing behind a paywall', text: 'Reading and searching is free and needs no account. There is no premium tier on the listings, and listings expire when a board stops showing them.' },
                     { title: 'Track your applications', text: 'Sign in and press Track this job on a listing: keep your status, notes and next steps in one place, and ask your OpenVibe.Actor agent to help prepare each application.' },
                 ],
-            }))}
+            }))}</details></section>
 ${FAQ.length ? html`<section class="sc-sec" aria-labelledby="h-faq"><h2 id="h-faq">Questions people ask</h2>
 <div class="home-faq">${FAQ.map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div></section>` : ''}
-${raw(showcase.network({ service: 'work' }))}
-${raw(showcase.cta({ title: 'Prefer the API?', text: 'The same search, the sources and their terms, and your saved searches over HTTP. Reading is public.', actions: [{ label: 'The API', href: '/docs' }, { label: 'The sources', href: '/sources' }] }))}`,
+${raw(showcase.network({ service: 'work' }))}`,
         });
     });
 

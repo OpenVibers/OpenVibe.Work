@@ -25,3 +25,24 @@
 .home-faq details p { margin: 0; padding: 0 16px 14px; color: var(--text-secondary, #96a7c2); line-height: 1.55; }
 @media (max-width: 520px) { .home-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .home-cards a { padding: 10px 12px; } }
 @media (prefers-reduced-motion: reduce) { .home-cards a { transition: none; } .home-cards a:hover { transform: none; } }
+
+/* Phones (2026-10-29): a taste and a door. The job lists are one sideways row each (every listing is still there), six
+   fields, eight cities and six companies show (each list is a link away), the figures are one strip. */
+.home-fold { border: 1px solid var(--border, #1f2d47); border-radius: 14px; background: var(--bg-card, #131c2e); }
+.home-fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 0 16px; cursor: pointer; list-style: none; }
+.home-fold > summary::-webkit-details-marker { display: none; }
+.home-fold > summary h2 { margin: 0; font-size: 1.1rem; }
+.home-fold > summary span { color: var(--text-muted, #7386a3); font-weight: 600; font-size: .86rem; text-align: right; }
+.home-fold > summary:focus-visible { outline: 2px solid var(--accent, #3b82f6); outline-offset: -2px; border-radius: 14px; }
+.home-fold-body { padding: 0 16px; overflow-x: auto; }
+.home-fold .sc-sec { margin: 0; max-width: none; padding: 0 16px 16px; }
+@media (max-width: 599px) {
+  .home-cards.short > li:nth-child(n+7), .home-chips > li:nth-child(n+9) { display: none; }
+  .home-row .job-list { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; scrollbar-width: none; gap: 10px; margin-left: -16px; margin-right: -16px; padding: 0 16px 4px; }
+  .home-row .job-list::-webkit-scrollbar { display: none; }
+  .home-row .job-list > li { flex: 0 0 86%; min-width: 0; margin: 0; scroll-snap-align: start; }
+  .home-stats { display: flex; overflow-x: auto; scrollbar-width: none; gap: 8px; margin-left: -16px; margin-right: -16px; padding: 0 16px 2px; }
+  .home-stats::-webkit-scrollbar { display: none; }
+  .home-stats li { flex: 0 0 auto; width: 136px; }
+  .home-fold > summary span { display: none; }
+}
