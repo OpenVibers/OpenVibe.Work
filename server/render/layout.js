@@ -17,6 +17,8 @@ const frame = require('openvibe-shared/frame');
 const shell = require('openvibe-shared/shell');
 const cache = require('openvibe-shared/cache-policy');
 const { html, raw, esc } = require('./html');
+const { TWIN_PATH_RE } = require('../agent-pages');
+const { linkHeaderTags } = require('openvibe-shared/agent-layer');
 
 const NETWORK_URL = 'https://openvibe.network';
 const SITE_NAME = 'OpenVibe.Work';
@@ -56,6 +58,8 @@ function renderPage(o) {
     const pathNow = o.path || '/';
     const loginNext = encodeURIComponent(pathNow);
     const canonical = `${o.config.baseUrl}${pathNow.split('?')[0]}`;
+    // A public page names its Markdown twin (openvibe-shared/agent-layer); a signed-in page and a 404 do not.
+    const hasTwin = TWIN_PATH_RE.test(pathNow.split('?')[0]) && o.status !== 404;
     const navLinks = NAV.filter((l) => !l.signedIn || signedIn);
     const nav = {
         service: 'work',
@@ -85,6 +89,9 @@ function renderPage(o) {
         siteName: SITE_NAME,
         description: o.description || `${SITE_NAME} — ${TAGLINE}`,
         canonical,
+        // A public page names its Markdown twin (openvibe-shared/agent-layer).
+        agentLayer: hasTwin,
+        llms: '/llms.txt',
         robots: o.index ? 'index, follow' : 'noindex, nofollow',
         jsonLd: (o.jsonLd || []).filter(Boolean),
         home: '/',
@@ -125,7 +132,11 @@ function send(res, status, o) {
     const personal = o.viewer && o.viewer.kind === 'user';
     if (!res.get('Cache-Control')) res.set('Cache-Control', !personal && o.cache ? o.cache : cache.htmlHeaders({ private: true }));
     res.set('Vary', 'Cookie');
-    res.status(status).type('html').send(renderPage(o));
+    // The Link header names the same twin as the head, query included, where the site sets headers.
+    if (TWIN_PATH_RE.test(String(o.path || '/').split('?')[0]) && status !== 404) {
+        res.set('Link', linkHeaderTags(`${o.config.baseUrl}${o.path || '/'}`, '/llms.txt').header);
+    }
+    res.status(status).type('html').send(renderPage({ ...o, status }));
 }
 
 module.exports = { renderPage, send, asset, assetVersion, setRelease, SITE_NAME, NETWORK_URL, NAV, raw, html };
