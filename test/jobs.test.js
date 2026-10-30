@@ -185,8 +185,9 @@ const first = async (t, path) => (await t.get(path)).json();
 
         await check('every source is listed with its terms as applied and when it was last read', async () => {
             const api = await first(t, '/api/v1/sources');
-            assert.deepStrictEqual(api.sources.map((s) => s.id).sort(), ['arbeitnow', 'remoteok', 'remotive']);
-            for (const src of api.sources) {
+            assert.deepStrictEqual(api.sources.map((s) => s.id).sort(), ['arbeitnow', 'remoteok', 'remotive', 'weworkremotely']);
+            // A board OpenVibe.Sources feeds has no read of its own here, so it is not asked for one.
+            for (const src of api.sources.filter((x) => x.id !== 'weworkremotely')) {
                 assert.ok(src.terms.length > 40, `${src.id} has no terms`);
                 assert.match(src.terms, /link|attribute|mention|name/i, `${src.id}'s terms do not state the attribution rule`);
                 assert.strictEqual(src.last_fetch.ok, true);
@@ -213,7 +214,7 @@ const first = async (t, path) => (await t.get(path)).json();
             const llms = (await t.get('/llms.txt')).text;
             assert.ok(llms.includes('(https://openvibe.work/jobs)'));
             assert.ok(llms.includes('(https://openvibe.work/sources)'));
-            assert.ok(llms.includes('Arbeitnow, Remotive, RemoteOK'), 'the sources are not named for a crawler');
+            assert.ok(llms.includes('Arbeitnow, We Work Remotely, Remotive, RemoteOK'), 'the sources are not named for a crawler');
             assert.ok(!llms.includes('/saved'), 'llms.txt names a private page');
             const robots = (await t.get('/robots.txt')).text;
             assert.ok(robots.includes('Disallow: /saved'));

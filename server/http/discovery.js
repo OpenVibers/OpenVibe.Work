@@ -25,7 +25,7 @@ const SITEMAP_JOBS = 1000;
 
 const PAGE_TEXT = {
     '/': ['OpenVibe.Work home', 'OpenVibe.Work gathers job listings from public job boards, names the source of every one and links back to the original listing. Search is free and needs no account.'],
-    '/jobs': ['Jobs', 'Search job listings gathered from Arbeitnow, Remotive and RemoteOK, newest first, filterable by words, workplace, job type and location.'],
+    '/jobs': ['Jobs', 'Search job listings gathered from Arbeitnow, We Work Remotely, Remotive and RemoteOK, newest first, filterable by words, workplace, job type and location.'],
     '/companies': ['Companies hiring', 'Every company with open listings on the boards OpenVibe.Work reads, most openings first, each with a page of its jobs, where they are and which boards list them.'],
     '/sources': ['Sources', 'The public job boards OpenVibe.Work gathers from, the terms each is used under as applied here, and when each was last read.'],
     '/docs': ['API', 'The OpenVibe.Work API: search the listings, read one with its provenance, list the sources and their terms, keep saved searches.'],

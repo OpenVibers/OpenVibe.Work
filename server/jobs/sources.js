@@ -89,6 +89,17 @@ const SOURCES = [
         },
     },
     {
+        id: 'weworkremotely',
+        name: 'We Work Remotely',
+        homepage: 'https://weworkremotely.com/',
+        terms: 'We Work Remotely publishes its board as an RSS feed for companies to post in it. OpenVibe.Sources reads that feed under the board\'s own robots and terms checks, and Work follows it there (server/ingest/from-sources.js). We attribute the board by name and link every listing back to its page on weworkremotely.com, and we keep only the headline, the company and a short excerpt.',
+        attribution: 'Listing from We Work Remotely',
+        remoteDefault: true,                        // the board carries remote work only
+        viaSources: true,                           // read through OpenVibe.Sources, never by Work itself
+        requests() { return ['https://weworkremotely.com/remote-jobs.rss']; },
+        parse() { return []; },                     // Work never reads this feed itself: the items arrive through Sources
+    },
+    {
         id: 'remotive',
         name: 'Remotive',
         homepage: 'https://remotive.com/',

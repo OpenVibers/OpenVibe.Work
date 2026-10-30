@@ -155,7 +155,8 @@ const DAY = 86_400_000;
             await ingest.runAll();
             const before = t.boards.requests.length;
             const out = await ingest.runAll({ onlyDue: true });
-            assert.ok(out.every((o) => o.skipped === 'not_due'), 'every source was read just now, so none is due');
+            // A board OpenVibe.Sources feeds is never read here at all, so it is skipped rather than due.
+            assert.ok(out.every((o) => o.skipped === 'not_due' || o.skipped === 'from_sources'), 'every source was read just now, so none is due');
             assert.strictEqual(t.boards.requests.length, before, 'no board was called');
             t.boards.reset();
         });
