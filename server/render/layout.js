@@ -17,6 +17,7 @@ const frame = require('openvibe-shared/frame');
 const shell = require('openvibe-shared/shell');
 const cache = require('openvibe-shared/cache-policy');
 const { html, raw, esc } = require('./html');
+const { foldBlock } = require('./short');
 const { TWIN_PATH_RE } = require('../agent-pages');
 const { linkHeaderTags } = require('openvibe-shared/agent-layer');
 
@@ -104,6 +105,7 @@ ${appIcon.headTags({ site: 'work' })}
 ${o.feed ? `<link rel="alternate" type="application/atom+xml" title="${esc(o.feed.title)}" href="${esc(o.feed.href)}">` : ''}
 ${(o.styles || []).map((name) => `<link rel="stylesheet" href="${esc(ovServe.url(name))}">`).join('\n')}
 ${(o.localStyles || []).map((rel) => `<link rel="stylesheet" href="${asset(rel)}">`).join('\n')}
+${(o.inlineStyles || []).map((css) => `<style>${css}</style>`).join('\n')}
 ${render(scripts)}
 <meta name="ov-boost" content="work@${esc(RELEASE)}">
 <script src="${ovServe.url('boost.js')}" data-main="#main" defer></script>`,
@@ -113,7 +115,12 @@ ${render(scripts)}
 <main id="main" class="page">
 ${render(crumbs)}
 ${render(o.body)}
-${o.path === '/' ? frame.shipped({ service: 'work', title: `Recently shipped on ${SITE_NAME}` }) : ''}
+${o.path === '/' ? foldBlock({
+            id: 'shipped',
+            bare: true,
+            head: `<h2>Recently shipped on ${SITE_NAME}</h2>`,
+            html: frame.shipped({ service: 'work', title: `Recently shipped on ${SITE_NAME}` }),
+        }) : ''}
 </main>
 <script>
 window.__OV_PAGE = ${JSON.stringify({ navbar: nav, footer }).replace(/</g, '\\u003c')};
