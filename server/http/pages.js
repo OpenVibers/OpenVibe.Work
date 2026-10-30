@@ -18,6 +18,7 @@ const { asyncRouter } = require('./router');
 const { createDiscoveryRoutes, homeJsonLd } = require('./discovery');
 const { sameOrigin } = require('./principal');
 const { html, raw, table, notice, time } = require('../render/html');
+const { foldBlock, pickBlock, pickRules } = require('../render/short');
 const { send } = require('../render/layout');
 const listing = require('../render/listing');
 const store = require('../jobs/store');
@@ -138,6 +139,27 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
             { value: sum.remote, label: 'remote listings', href: '/jobs?remote=true' },
             { value: sources.SOURCES.length, label: 'job boards read', href: '/sources' },
         ].filter((x) => x.value);
+        // The sections below the search, as the panes of one block: on a phone a row of chips picks one at a time, so
+        // the home stays short (the owner's short-pages rule, 2026-10-30). Radio inputs and :has(), no script, and
+        // every section stays in the page for the crawlers; a wider screen shows them all and no chips. The order is
+        // the one the page had, and the newest listings are the one a phone shows first.
+        const panes = [];
+        if (sum.tags.length) panes.push({ id: 'fields', label: 'Fields', html: String(html`<section class="sc-sec" aria-labelledby="h-fields"><h2 id="h-fields">Browse by field</h2>
+<p class="sc-lede">The labels the boards put on most listings right now. Each opens a search for it.</p>
+<ul class="home-cards short">${sum.tags.map((t) => html`<li><a href="/jobs?${new URLSearchParams({ q: t.tag })}"><b>${sentence(t.tag)}</b><span>${n(t.count)} listing${t.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>`) });
+        if (sum.places.length) panes.push({ id: 'cities', label: 'Cities', html: String(html`<section class="sc-sec" aria-labelledby="h-places"><h2 id="h-places">Jobs by city</h2>
+<p class="sc-lede">The places most listings name. Remote jobs are <a href="/jobs?remote=true">their own search</a>.</p>
+<ul class="home-chips">${sum.places.map((p) => html`<li><a href="/jobs?${new URLSearchParams({ location: p.place })}">${p.place} <span>${n(p.count)}</span></a></li>`)}</ul></section>`) });
+        panes.push({ id: 'latest', label: 'Latest', html: String(html`<section class="sc-sec home-row" aria-labelledby="h-latest"><h2 id="h-latest">Latest remote jobs</h2>
+${listing.listingList(latest, { sourceOf, empty: 'No listings yet — the ingest has not run.' })}
+<p><a class="sc-btn" href="/jobs?remote=true">All remote listings</a></p></section>`) });
+        if (salaried.length) panes.push({ id: 'pay', label: 'Pay', html: String(html`<section class="sc-sec home-row" aria-labelledby="h-pay"><h2 id="h-pay">Newest jobs that state the pay</h2>
+<p class="sc-lede">${n(sum.salaried)} listing${sum.salaried === 1 ? '' : 's'} say what the job pays, in the board's own words.</p>
+${listing.listingList(salaried, { sourceOf, empty: '' })}</section>`) });
+        if (sum.hiring.length) panes.push({ id: 'companies', label: 'Companies', html: String(html`<section class="sc-sec" aria-labelledby="h-hiring"><h2 id="h-hiring">Companies with the most openings</h2>
+<p class="sc-lede">Counted across every board. Each opens the company's page: its openings, where they are and which boards list them.</p>
+<ul class="home-cards short">${sum.hiring.map((c) => { const slug = companies.slugOf(c.company); return html`<li><a href="${slug ? `/companies/${slug}` : `/jobs?${new URLSearchParams({ q: c.company })}`}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`; })}</ul>
+<p><a href="/companies">Every company hiring</a></p></section>`) });
         page(req, res, {
             index: true, cache: signedIn(req) ? null : PUBLIC_CACHE,
             title: 'Jobs from open job boards, with sources',
@@ -148,27 +170,15 @@ ${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type,
                 FAQ.length ? seo.jsonLd.faq(FAQ.map((f) => ({ q: f.question, a: f.answer }))) : null,
             ],
             styles: [showcase.STYLESHEET], localStyles: ['css/home.css'],
+            // The rule that shows the picked section of the browse block is written for the page, because there is one
+            // per section (CSS cannot pair a radio with a pane by index).
+            inlineStyles: ['@supports selector(:has(*)){@media (max-width:640px){' + pickRules('browse', panes.map((p) => p.id)) + '}}'],
             body: html`${raw(hero)}
 ${stats.length ? html`<ul class="home-stats" aria-label="${SITE_NAME} in numbers">${stats.map((x) => html`<li><a href="${x.href}"><b>${n(x.value)}</b><span>${x.label}</span></a></li>`)}</ul>` : ''}
 <section class="sc-sec" id="search" aria-labelledby="h-search"><h2 id="h-search">Search the listings</h2>
 ${filterForm({ q: '', remote: '', type: '', location: '' }, { action: '/jobs' })}
 <p class="muted">${n(total)} listing${total === 1 ? '' : 's'} from ${sources.SOURCES.length} job boards, newest first.${sum.day ? ` ${n(sum.day)} arrived in the last day.` : ''}</p></section>
-${sum.tags.length ? html`<section class="sc-sec" aria-labelledby="h-fields"><h2 id="h-fields">Browse by field</h2>
-<p class="sc-lede">The labels the boards put on most listings right now. Each opens a search for it.</p>
-<ul class="home-cards short">${sum.tags.map((t) => html`<li><a href="/jobs?${new URLSearchParams({ q: t.tag })}"><b>${sentence(t.tag)}</b><span>${n(t.count)} listing${t.count === 1 ? '' : 's'}</span></a></li>`)}</ul></section>` : ''}
-${sum.places.length ? html`<section class="sc-sec" aria-labelledby="h-places"><h2 id="h-places">Jobs by city</h2>
-<p class="sc-lede">The places most listings name. Remote jobs are <a href="/jobs?remote=true">their own search</a>.</p>
-<ul class="home-chips">${sum.places.map((p) => html`<li><a href="/jobs?${new URLSearchParams({ location: p.place })}">${p.place} <span>${n(p.count)}</span></a></li>`)}</ul></section>` : ''}
-<section class="sc-sec home-row" aria-labelledby="h-latest"><h2 id="h-latest">Latest remote jobs</h2>
-${listing.listingList(latest, { sourceOf, empty: 'No listings yet — the ingest has not run.' })}
-<p><a class="sc-btn" href="/jobs?remote=true">All remote listings</a></p></section>
-${salaried.length ? html`<section class="sc-sec home-row" aria-labelledby="h-pay"><h2 id="h-pay">Newest jobs that state the pay</h2>
-<p class="sc-lede">${n(sum.salaried)} listing${sum.salaried === 1 ? '' : 's'} say what the job pays, in the board's own words.</p>
-${listing.listingList(salaried, { sourceOf, empty: '' })}</section>` : ''}
-${sum.hiring.length ? html`<section class="sc-sec" aria-labelledby="h-hiring"><h2 id="h-hiring">Companies with the most openings</h2>
-<p class="sc-lede">Counted across every board. Each opens the company's page: its openings, where they are and which boards list them.</p>
-<ul class="home-cards short">${sum.hiring.map((c) => { const slug = companies.slugOf(c.company); return html`<li><a href="${slug ? `/companies/${slug}` : `/jobs?${new URLSearchParams({ q: c.company })}`}"><b>${c.company}</b><span>${n(c.count)} open listing${c.count === 1 ? '' : 's'}</span></a></li>`; })}</ul>
-<p><a href="/companies">Every company hiring</a></p></section>` : ''}
+${raw(pickBlock({ key: 'browse', label: 'Browse the listings', head: 'Browse the listings', panes, checked: 'latest' }))}
 <section class="sc-sec" aria-labelledby="h-sources"><details class="home-fold"><summary><h2 id="h-sources">Where the listings come from</h2><span>${sources.SOURCES.length} public boards, how it works</span></summary><div class="home-fold-body">
 <p>Each source below is a public job board read through its own API, under its own terms. Every listing on this site names its source and links to the original; we keep a short excerpt and send you to the board for the rest.</p>
 ${table(['Source', 'Listings', 'Last read', 'Terms'], sources.SOURCES.map((src) => {
@@ -191,9 +201,19 @@ ${raw(showcase.steps({
                     { title: 'Track your applications', text: 'Sign in and press Track this job on a listing: keep your status, notes and next steps in one place, and ask your OpenVibe.Actor agent to help prepare each application.' },
                 ],
             }))}</details></section>
-${FAQ.length ? html`<section class="sc-sec" aria-labelledby="h-faq"><h2 id="h-faq">Questions people ask</h2>
-<div class="home-faq">${FAQ.map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div></section>` : ''}
-${raw(showcase.network({ service: 'work' }))}`,
+${FAQ.length ? raw(foldBlock({
+            id: 'faq',
+            bare: true,
+            head: '<h2>Questions people ask</h2>',
+            html: String(html`<section class="sc-sec" aria-labelledby="h-faq"><h2 id="h-faq">Questions people ask</h2>
+<div class="home-faq">${FAQ.map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div></section>`),
+        })) : ''}
+${raw(foldBlock({
+            id: 'network',
+            bare: true,
+            head: '<h2>Part of OpenVibe</h2>',
+            html: showcase.network({ service: 'work' }),
+        }))}`,
         });
     });
 
