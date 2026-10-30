@@ -176,10 +176,14 @@ const DAY = 86_400_000;
         await check('a page that is not a listing is refused rather than published', async () => {
             // A row with no URL to link back to, or a URL that is not http(s), has no provenance: it is not kept.
             const { toRow } = require('../server/jobs/sources');
-            const base = { source_id: 'x', title: 't', company: 'c', url: 'https://example.org/x', tags: [], description_html: '<p>hi</p>' };
+            const base = { source_id: 'x', title: 'Tester', company: 'Acme', url: 'https://example.org/x', tags: [], description_html: '<p>hi</p>' };
             assert.strictEqual(toRow({ ...base, url: 'javascript:alert(1)' }, { sourceId: 'remotive', fetchedAt: 'x', idOf: store.idOf }), null);
             assert.strictEqual(toRow({ ...base, url: null }, { sourceId: 'remotive', fetchedAt: 'x', idOf: store.idOf }), null);
             assert.strictEqual(toRow({ ...base, title: '' }, { sourceId: 'remotive', fetchedAt: 'x', idOf: store.idOf }), null);
+            // A board's test post ("z at y") is not a listing; a short real title ("QA at Acme") still is.
+            assert.strictEqual(toRow({ ...base, title: 'z', company: 'y' }, { sourceId: 'remoteok', fetchedAt: 'x', idOf: store.idOf }), null);
+            assert.strictEqual(toRow({ ...base, company: '1' }, { sourceId: 'remoteok', fetchedAt: 'x', idOf: store.idOf }), null);
+            assert.ok(toRow({ ...base, title: 'QA' }, { sourceId: 'remoteok', fetchedAt: 'x', idOf: store.idOf }), 'two letters is a title');
             const row = toRow(base, { sourceId: 'remotive', fetchedAt: '2026-10-01T00:00:00.000Z', idOf: store.idOf });
             assert.strictEqual(row.sort_at, '2026-10-01T00:00:00.000Z', 'a listing with no date sorts by when we read it');
         });
