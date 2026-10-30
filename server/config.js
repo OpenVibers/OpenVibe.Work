@@ -93,6 +93,9 @@ function load(env = process.env) {
             // We Work Remotely reaches Work the same way (WORK_WWR_FROM=sources, the weworkremotely key in Sources);
             // it is off until the board is read through Sources, and Work never fetches the feed itself.
             weworkremotelyFrom: String(env.WORK_WWR_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
+            // Hacker News "Who is hiring" reaches Work the same way (WORK_HN_WHOISHIRING_FROM=sources, the
+            // hn-whoishiring key in Sources); its resolver reads the thread, never Work itself.
+            hnWhoishiringFrom: String(env.WORK_HN_WHOISHIRING_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
         },
         // The background ingest (server/ingest/): off unless WORK_INGEST=on, so a test and a development run
         // never call a job board. Once on, each source is fetched at most every intervalMs (Remotive's terms

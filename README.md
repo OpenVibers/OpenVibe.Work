@@ -2,7 +2,7 @@
 
 > Find work on open job boards.
 
-**Status:** the listings, the search and the agent pillar are live (listings gathered from three public job boards,
+**Status:** the listings, the search and the agent pillar are live (listings gathered from four public job boards (two of them read through OpenVibe.Sources),
 search, saved searches, job applications with their status history, help preparing one from the person's OpenVibe.Actor
 agent, an API and the pages around them).
 **Domain:** `openvibe.work` · **Port:** 4960 · **Service id:** `work` · **Env prefix:** `WORK`
@@ -31,7 +31,7 @@ republished: Work stores a short plain-text excerpt and sends the reader to the 
 | Config | [server/config.js](server/config.js) | Every value from the environment; `load(env)` is pure so tests build a config without touching `process.env` |
 | App | [server/app.js](server/app.js) | helmet (CSP, frame-ancestors none), the Network session middleware, `/auth`, the legal pages, static assets, the `/api/v1` mount, the 404 and the error handler |
 | Sign-in | [server/auth/sso.js](server/auth/sso.js) | OAuth 2 authorization code with PKCE (S256) against OpenVibe.Network; httpOnly `work_at` / `work_rt` cookies; `/auth/me` for the shared navbar |
-| Sources | [server/jobs/sources.js](server/jobs/sources.js) | The three boards: where each is fetched, its terms, how its payload becomes a listing, and what is refused |
+| Sources | [server/jobs/sources.js](server/jobs/sources.js) | The boards: where each is fetched, its terms, how its payload becomes a listing, and what is refused |
 | Ingest | [server/ingest/](server/ingest/) | The background read (timer, User-Agent, 15 s timeout, upsert by source + the board's id, expiry) |
 | Listings | [server/jobs/store.js](server/jobs/store.js), [migrations/0002_listings.sql](migrations/0002_listings.sql) | Search, facets, the cursor, saved searches, the fetch record |
 | Text | [server/jobs/text.js](server/jobs/text.js) | HTML → plain text, and the ~300-character excerpt that is all we keep |
@@ -71,7 +71,7 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
   the canonical subject. Work holds only `user:usr_…` on its own rows.
 - **Event delivery** — OpenVibe.Events: Work receives `network.account.export_requested` and `network.account.deleted`
   and creates its two subscriptions at boot; it does not own the topics or the delivery.
-- **The listings themselves** — the boards (Arbeitnow, Remotive, RemoteOK): Work keeps a short excerpt and a link back,
+- **The listings themselves** — the boards (Arbeitnow, Remotive, RemoteOK and Hacker News "Who is hiring"): Work keeps a short excerpt and a link back,
   never the full description, and reads each board only on the terms it publishes.
 
 ## Depends on
@@ -85,8 +85,9 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
 - **OpenVibe.Actor** — the person's agent: Work posts `POST /api/v1/tasks` with its own service token (capability
   `actor.task.create`, audience `openvibe.actor`) when a person asks for help preparing an application
   (`WORK_ACTOR_URL`, `WORK_ACTOR_PUBLIC_URL`, `WORK_ACTOR_TIMEOUT_MS`).
-- **The three job boards** — the only hosts the ingest fetches: Arbeitnow, Remotive and RemoteOK's public APIs
-  (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`, `WORK_REMOTEOK_URL`, `WORK_USER_AGENT`).
+- **The job boards** — Arbeitnow, Remotive and RemoteOK are the only hosts Work itself fetches (`WORK_ARBEITNOW_URL`,
+  `WORK_REMOTIVE_URL`, `WORK_REMOTEOK_URL`, `WORK_USER_AGENT`). We Work Remotely and Hacker News "Who is hiring" arrive
+  through OpenVibe.Sources (`WORK_WWR_FROM=sources`, `WORK_HN_WHOISHIRING_FROM=sources`).
 - **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
   `WORK_PGLITE_DIR`) and **Valkey** for shared limit counters (`VALKEY_URL`, `VALKEY_PREFIX`).
 - **Packages**: `openvibe-contracts` v0.222.0, `openvibe-sdk` v0.74.0 (`db`, `auth`, `account-data`, `limits`,
