@@ -161,11 +161,15 @@ const ids = () => SOURCES.map((s) => s.id);
  * with no id, no title, no company or no http(s) URL to link back to — without those a listing has no provenance and
  * must not be published. The excerpt is what is stored; the board keeps the full description.
  */
+const letters = (v) => (String(v == null ? '' : v).match(/\p{L}/gu) || []).length;
 function toRow(raw, { sourceId, fetchedAt, idOf }) {
     // The URL is checked again here even though each parse does it: this is the last gate before anything is stored,
     // and a listing without an http(s) link back to its board has no provenance and is not published.
     const url = raw && httpUrl(raw.url);
     if (!raw || !raw.source_id || !raw.title || !raw.company || !url) return null;
+    // Nor one nobody could act on: a title or a company with fewer than two letters is a board's test post (RemoteOK
+    // carried three "z at y" listings on 2026-10-30, and the network's home showed them as new jobs).
+    if (letters(raw.title) < 2 || letters(raw.company) < 2) return null;
     const tags = list(raw.tags);
     const row = {
         id: idOf(sourceId, raw.source_id),
