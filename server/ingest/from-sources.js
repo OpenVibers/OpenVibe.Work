@@ -102,18 +102,58 @@ function rawOfWwr(item) {
 }
 
 /**
+ * A Sources item → the row a Hacker News "Who is hiring" comment makes. The resolver's title is the comment's first
+ * line, which posters usually write as "Company | Role | Place" or "Company is hiring a role": the company comes from
+ * that, and a comment that does not name one is held by the same thin-listing gate as any other board. The excerpt is
+ * Sources' plain-text excerpt, already stripped of email addresses and phone numbers; the full comment is its link.
+ */
+function rawOfHn(item) {
+    const f = (item && item.fields) || {};
+    const first = String((item && item.title) || '').replace(/\s+/g, ' ').trim();
+    const parts = first.split(/\s*\|\s*/);
+    let company = '';
+    let title = first;
+    if (parts.length >= 2 && parts[0].trim()) {
+        company = parts[0].trim();
+        title = parts.slice(1).join(' | ').trim() || first;
+    } else {
+        const m = /^(.+?)\s+(?:is|are)\s+hiring\b/i.exec(first);
+        if (m && m[1].trim()) {
+            company = m[1].trim();
+            title = first.slice(m[0].length).replace(/^[\s:,-]+/, '').trim() || first;
+        }
+    }
+    const summary = String((item && item.summary) || '');
+    return {
+        source_id: item.identity,
+        url: item.canonical_url,
+        title,
+        company,
+        location: null,                             // the comment rarely states one; the title may, in its own words
+        remote: /\bremote\b/i.test(`${first} ${summary}`),
+        tags: list(f.tags),
+        job_type: null,
+        salary: null,
+        posted_at: item.published_at || null,
+        description_html: summary,
+    };
+}
+
+/**
  * The boards Work reads through OpenVibe.Sources: the Sources key an item arrives under, the id the listing is
  * stored with, the kind of item that source keeps, and how the item becomes a listing.
  */
 const SOURCES = {
     [SOURCE_KEY]: { source_id: SOURCE_ID, kind: 'job', rawOf },
     'weworkremotely': { source_id: 'weworkremotely', kind: 'article', rawOf: rawOfWwr },
+    'hn-whoishiring': { source_id: 'hn-whoishiring', kind: 'job', rawOf: rawOfHn },
 };
 
 /** The switch that says a board comes from Sources instead of from its own fetch. */
 const SWITCH = {
     arbeitnow: (config) => (config.sources && config.sources.arbeitnowFrom) === 'sources',
     weworkremotely: (config) => (config.sources && config.sources.weworkremotelyFrom) === 'sources',
+    'hn-whoishiring': (config) => (config.sources && config.sources.hnWhoishiringFrom) === 'sources',
 };
 
 function createFromSources({ config, s, fetchImpl = globalThis.fetch, log = console, source = null, afterRun = null, indexnow = null }) {
@@ -199,4 +239,4 @@ function createFromSources({ config, s, fetchImpl = globalThis.fetch, log = cons
     return { enabled: Boolean(client), pull, start, stop, apply, SOURCE_ID, sourceIds: active.map(([, e]) => e.source_id) };
 }
 
-module.exports = { createFromSources, rawOf, rawOfWwr, SOURCES, SOURCE_ID, SOURCE_KEY };
+module.exports = { createFromSources, rawOf, rawOfWwr, rawOfHn, SOURCES, SOURCE_ID, SOURCE_KEY };

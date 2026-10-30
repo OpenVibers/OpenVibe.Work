@@ -100,6 +100,17 @@ const SOURCES = [
         parse() { return []; },                     // Work never reads this feed itself: the items arrive through Sources
     },
     {
+        id: 'hn-whoishiring',
+        name: 'Hacker News: Who is hiring',
+        homepage: 'https://news.ycombinator.com/',
+        terms: 'Hacker News makes its public data available through its API. OpenVibe.Sources reads the monthly "Ask HN: Who is hiring?" thread\'s top-level comments, one job per comment with emails and phones removed, and links the comment; Work follows that change feed. Attribute Hacker News and the poster.',
+        attribution: 'Listing from Hacker News "Who is hiring"',
+        remoteDefault: false,
+        viaSources: true,                           // the resolver in OpenVibe.Sources is the only reader
+        requests() { return []; },
+        parse() { return []; },                     // Work never calls the Hacker News API itself
+    },
+    {
         id: 'remotive',
         name: 'Remotive',
         homepage: 'https://remotive.com/',
