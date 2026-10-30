@@ -102,9 +102,8 @@ button.sc-btn.sc-primary { border: 0; }
 /* 13 touch targets (2026-10-29): place chips, the location filter and job titles are 44 px; the lone link grows vertically. */
 @media (pointer: coarse) {
   .home-chips a { min-height: 44px; align-items: center; }
-  .job-search select { min-height: 44px; }
-  .job-title a { position: relative; }
-  .job-title a::after { content: ''; position: absolute; left: 0; right: 0; top: -2px; bottom: -2px; }
+  .job-search input, .job-search select { height: auto; min-height: 44px; }
+  .job-title a { display: inline-block; min-height: 44px; }
   .page p > a:only-child { position: relative; }
   .page p > a:only-child::after { content: ''; position: absolute; left: 0; right: 0; top: -13px; bottom: -13px; }
 }
