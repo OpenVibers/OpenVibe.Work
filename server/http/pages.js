@@ -651,7 +651,7 @@ ${sources.SOURCES.map((src) => {
 <li>${src.name} listings also carry their source in the JSON-LD on the listing page.</li></ul>
 <h3>What each read does</h3>
 <dl class="job-facts">
-<dt>API</dt><dd><code>${src.requests(config)[0]}</code></dd>
+<dt>API</dt><dd>${src.viaSources ? html`read through OpenVibe.Sources from <code>${src.requests(config)[0]}</code>` : html`<code>${src.requests(config)[0]}</code>`}</dd>
 <dt>Last read</dt><dd>${f && f.started_at ? html`${time(f.started_at)}${f.ok ? ' — succeeded' : ' — failed'}${f.error ? html` <span class="muted small">(${f.error})</span>` : ''}` : html`<span class="muted">not read yet</span>`}</dd>
 <dt>Reads every</dt><dd>${Math.round(config.ingest.intervalMs / 3_600_000)} hours ${src.id === 'remotive' ? '(its terms allow about four a day)' : ''}</dd>
 <dt>Listings kept</dt><dd>${(counts.get(src.id) || {}).count || 0}, retired when the board stops showing one for ${config.ingest.retentionDays} days</dd>

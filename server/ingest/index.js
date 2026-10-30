@@ -39,7 +39,7 @@ const TICK_MS = 3_600_000;
 function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, afterRun = null, indexnow = null, fromSources = null }) {
     const timers = new Map();
     // A board OpenVibe.Sources feeds (server/ingest/from-sources.js) is not read here, nor swept by the expiry.
-    const viaSources = new Set(fromSources && fromSources.enabled ? [fromSources.SOURCE_ID] : []);
+    const viaSources = new Set(fromSources && fromSources.enabled ? (fromSources.sourceIds || [fromSources.SOURCE_ID]) : []);
     let running = false;
 
     /** Read one source end to end and record what happened. Never throws: the caller is a timer. */
@@ -92,7 +92,8 @@ function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, 
             for (const source of sources.SOURCES) {
                 const prev = last.get(source.id);
                 const age = prev && prev.started_at ? s.now() - Date.parse(prev.started_at) : Infinity;
-                if (viaSources.has(source.id)) { out.push({ source: source.id, skipped: 'from_sources' }); continue; }
+                // A board OpenVibe.Sources feeds is not read here at all, whichever switch is on: Work never fetches it.
+                if (viaSources.has(source.id) || source.viaSources) { out.push({ source: source.id, skipped: 'from_sources' }); continue; }
                 if (onlyDue && age < config.ingest.intervalMs) { out.push({ source: source.id, skipped: 'not_due' }); continue; }
                 out.push({ source: source.id, ...(await runSource(source.id)) });
             }

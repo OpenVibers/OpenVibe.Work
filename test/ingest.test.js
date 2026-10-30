@@ -22,8 +22,10 @@ const DAY = 86_400_000;
     try {
         await check('reading the three boards keeps every listing with its source, its id and the original URL', async () => {
             const out = await ingest.runAll();
-            assert.deepStrictEqual(out.map((o) => o.source), ['arbeitnow', 'remotive', 'remoteok']);
-            assert.ok(out.every((o) => o.ok), JSON.stringify(out.map((o) => o.error)));
+            // We Work Remotely is skipped here: it reaches Work through OpenVibe.Sources, never from its own feed.
+            assert.deepStrictEqual(out.map((o) => o.source), ['arbeitnow', 'weworkremotely', 'remotive', 'remoteok']);
+            assert.ok(out.filter((o) => o.source !== 'weworkremotely').every((o) => o.ok), JSON.stringify(out.map((o) => o.error)));
+            assert.strictEqual(out.find((o) => o.source === 'weworkremotely').skipped, 'from_sources');
             // Arbeitnow's two pages (2 + 1), Remotive's two jobs, RemoteOK's two listings.
             const counts = await store.countsBySource(s);
             assert.strictEqual(counts.get('arbeitnow').count, 3);
@@ -155,7 +157,8 @@ const DAY = 86_400_000;
             await ingest.runAll();
             const before = t.boards.requests.length;
             const out = await ingest.runAll({ onlyDue: true });
-            assert.ok(out.every((o) => o.skipped === 'not_due'), 'every source was read just now, so none is due');
+            // A board OpenVibe.Sources feeds is never read here at all, so it is skipped rather than due.
+            assert.ok(out.every((o) => o.skipped === 'not_due' || o.skipped === 'from_sources'), 'every source was read just now, so none is due');
             assert.strictEqual(t.boards.requests.length, before, 'no board was called');
             t.boards.reset();
         });

@@ -7,7 +7,7 @@
 module.exports = {
     id: 'work',
     name: 'OpenVibe.Work',
-    purpose: 'Find work on open job boards: listings from Arbeitnow, Remotive and RemoteOK under their terms, searchable with facets and each linking back to the original, plus saved searches and OpenVibe.Watch alerts for a signed-in person.',
+    purpose: 'Find work on open job boards: listings from Arbeitnow, We Work Remotely, Remotive and RemoteOK under their terms, searchable with facets and each linking back to the original, plus saved searches and OpenVibe.Watch alerts for a signed-in person.',
     home: 'https://openvibe.work',
     site: 'openvibe.work',
     api: '/api/v1',
