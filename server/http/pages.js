@@ -84,7 +84,7 @@ ${link({ remote: 'true' }, 'Remote', filters.remote === 'true', facets.remote.tr
 ${link({ remote: 'false' }, 'On-site', filters.remote === 'false', facets.remote.false)}
 </ul>
 ${facets.type.length ? html`<ul class="facets" aria-label="Job type"><li class="facet-label">Type</li>
-${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type, t.count))}
+${facets.type.map((t) => link({ type: t.type }, listing.jobTypeLabel(t.type), filters.type === t.type, t.count))}
 </ul>` : ''}
 </div>`;
     };
@@ -251,7 +251,7 @@ ${raw(foldBlock({
         const entries = p.rows.map((row) => {
             const l = listing.meta(row);
             const at = isoOf(l.posted_at) || isoOf(row.fetched_at) || new Date().toISOString();
-            const where = [l.location, l.remote ? 'Remote' : '', l.job_type].filter(Boolean).join(' · ');
+            const where = [l.location, l.remote ? 'Remote' : '', listing.jobTypeLabel(l.job_type)].filter(Boolean).join(' · ');
             return `<entry><id>${xml(`${config.baseUrl}/jobs/${row.id}`)}</id><title>${xml(`${l.title} at ${l.company}`)}</title>`
                 + `<link rel="alternate" type="text/html" href="${xml(`${config.baseUrl}/jobs/${row.id}`)}"/><updated>${at}</updated>`
                 + `<author><name>${xml(sourceOf(row).name)}</name></author>`
@@ -294,9 +294,7 @@ ${listing.listingList(p.rows, { sourceOf, empty: 'No listings match this search.
 ${cursor ? html`<a class="sc-btn" href="${withFilters(filters, { cursor: null }, '/jobs')}">First page</a>` : ''}
 ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</a>` : html`<span class="muted">That is every listing matching this search.</span>`}
 </nav>
-<p class="muted small">Read the full listing on its source: each entry links back to the board it came from.</p>
-<p class="muted small">We never host a listing's description: every card is a short excerpt and a link out to the board.</p>
-<p class="muted small">There is no apply button and no CV upload here: an aggregator cannot verify more than the board does, so the application stays with the employer.</p>`,
+<p class="muted small">Each listing is a short excerpt that links to its board. You apply there; we host no descriptions, CVs or apply buttons.</p>`,
         });
     });
 
@@ -337,14 +335,13 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
             jsonLd: [listing.jobPosting(row, { siteUrl: config.baseUrl })],
             body: html`<article class="job">
 <h1>${l.title}</h1>
-<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${l.job_type}</span>` : ''}</p>
+<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${listing.jobTypeLabel(l.job_type)}</span>` : ''}</p>
 ${listing.salaryLine(row, { note: true })}
-${l.tags.length ? html`<ul class="job-tags">${l.tags.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
+${l.tags.length ? html`<p class="job-chips">${l.tags.map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>` : ''}
 <section class="job-excerpt-block" aria-labelledby="h-excerpt"><h2 id="h-excerpt">Excerpt</h2>
 <p>${l.excerpt}</p>
-<p class="muted small">We never host the description: this is a short excerpt only, and the full listing stays on ${src.name}.</p></section>
+<p class="muted small">Short excerpt only. You apply on ${src.name}.</p></section>
 <p class="job-apply"><a class="sc-btn sc-primary" href="${l.url}" rel="nofollow noopener external" target="_blank">Read the full listing on ${src.name}</a> <span class="muted small">Read from ${src.name} on ${fetchedOn}</span></p>
-<p class="muted small">No apply button and no CV upload here: an aggregator cannot verify more than the board does, so the application stays with the employer.</p>
 ${signedIn(req)
             ? (tracked
                 ? html`<p class="job-track"><span class="badge ok">Tracked: ${STATUS_LABEL[tracked.status] || tracked.status}</span> <a href="/applications/${tracked.id}">Open your application</a></p>`
@@ -468,7 +465,7 @@ ${withCounts.length ? html`<ul class="saved-list">${withCounts.map(({ row, count
 </li>`)}</ul>` : ''}
 ${savedForm(req, initial)}
 <p class="muted small">Get alerts opens OpenVibe.Watch with the search's feed filled in: Watch checks it and tells you (or runs your agent) when a listing that fits appears. Every search has its feed at <code>/jobs.atom</code> with the same filters.</p>
-<p class="muted small">“Last ran” is the last time we ran that search for you — when you opened this page. Your alerts are one OpenVibe account: the same sign-in you use here follows your searches in OpenVibe.Watch, and across the whole network.</p>
+<p class="muted small">Alerts for a search come from OpenVibe.Watch, on the same account.</p>
 <p class="muted small">In code: <code>GET /api/v1/saved-searches</code>.</p>`,
         });
     });

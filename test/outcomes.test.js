@@ -64,7 +64,7 @@ const cardOf = (html, id) => {
             const card = cardOf((await t.get('/jobs')).text, job.id);
             assert.ok(card.includes('Listing from'), 'the card does not say where the listing came from');
             assert.ok(card.includes(`href="${job.url}"`), 'the card does not link the board\'s own listing');
-            assert.ok(card.includes(`first seen on Remotive on ${dateWords(row.first_seen_at)}`), 'the card does not say when we first saw it');
+            assert.ok(card.includes(`first seen ${dateWords(row.first_seen_at)}`), 'the card does not say when we first saw it');
             assert.ok(card.includes('rel="nofollow noopener external"'), 'the link out must stay external and nofollow');
         });
 
@@ -102,22 +102,38 @@ const cardOf = (html, id) => {
         await check('outcome 6: we never host the description, and the page says so', async () => {
             const job = (await t.get('/api/v1/jobs?q=Platform%20Engineer')).json().jobs[0];
             const page = (await t.get(`/jobs/${job.id}`)).text;
-            assert.ok(page.includes('We never host the description'), 'the promise is not a visible line');
-            assert.ok(page.includes('short excerpt only'), 'the promise does not say what we do show');
+            assert.ok(page.includes('Short excerpt only. You apply on Remotive.'), 'the promise is not a visible line');
             assert.ok(page.includes('You will run the platform other engineers build on'), 'the excerpt is missing');
             assert.ok(!page.includes('Waffle'), 'the full description was republished');
             const list = (await t.get('/jobs')).text;
-            assert.ok(list.includes("We never host a listing's description"), 'the list page does not say it either');
+            assert.ok(list.includes('Each listing is a short excerpt that links to its board.'), 'the list page does not say it either');
         });
 
         await check('outcome 8: no apply button and no CV upload, with the one line why', async () => {
             const job = (await t.get('/api/v1/jobs?q=Platform%20Engineer')).json().jobs[0];
             const page = (await t.get(`/jobs/${job.id}`)).text;
-            assert.ok(page.includes('No apply button and no CV upload'), 'the line about the apply button is missing');
-            assert.ok(page.includes('an aggregator cannot verify more than the board does'), 'the reason is missing');
+            assert.ok(page.includes('Short excerpt only. You apply on Remotive.'), 'the page does not say where you apply');
             assert.ok(!/<input[^>]*type="file"/.test(page), 'there is a file input on the page');
+            assert.ok(!/<button[^>]*>\s*Apply/i.test(page), 'there is an apply button on the page');
             const list = (await t.get('/jobs')).text;
-            assert.ok(list.includes('no apply button and no CV upload'), 'the list page does not say it either');
+            assert.ok(list.includes('we host no descriptions, CVs or apply buttons'), 'the list page does not say it either');
+        });
+
+        await check('the job types are in words on the cards, in the facet and on the page, and the filter keeps the raw value', async () => {
+            const jobs = (await t.get('/api/v1/jobs?limit=100')).json().jobs;
+            const one = jobs.find((j) => j.job_type === 'full_time');
+            const two = jobs.find((j) => j.job_type === 'permanent, full_time');
+            assert.ok(one && two, 'the fixtures need a listing of each kind');
+            const page = (await t.get('/jobs')).text;
+            assert.ok(cardOf(page, one.id).includes('<span class="chip">Full time</span>'), 'the card does not say the job type in words');
+            assert.ok(cardOf(page, two.id).includes('<span class="chip">Permanent, Full time</span>'), 'the card does not say the job type in words');
+            assert.ok(!page.includes('permanent, full_time'), 'a raw job type is shown');
+            assert.match(page, />Full time <span class="facet-n">/, 'the facet is not in words');
+            assert.ok(page.includes('href="/jobs?type=full_time"'), 'the facet does not keep the raw query value');
+            // The listing's own page says it in words too, and its tags are the cards' chips.
+            const detail = (await t.get(`/jobs/${one.id}`)).text;
+            assert.ok(detail.includes('<span class="job-type">Full time</span>'), 'the page does not say the job type in words');
+            assert.ok(detail.includes('<span class="chip chip-tag">'), 'the tags are not chips');
         });
 
         await check('outcome 3: a listing the board stopped showing is hidden, and says so when the link is followed', async () => {
@@ -135,14 +151,14 @@ const cardOf = (html, id) => {
             assert.ok(page.text.includes(job.url), 'the board\'s own listing is still linked');
         });
 
-        await check('outcome 7: a saved search says what it looks for and when it last ran, and alerts are one account', async () => {
+        await check('outcome 7: a saved search says what it looks for and when it last ran, and its alerts come from Watch', async () => {
             const saved = await t.get('/saved', { as: kim, form: { q: 'engineer', remote: 'true' }, headers: SAME });
             assert.strictEqual(saved.status, 303);
             const page = (await t.get('/saved', { as: kim })).text;
             assert.ok(page.includes('“engineer”'), 'the saved search does not say what it looks for');
             assert.ok(page.includes('remote'), 'the saved search does not say what it looks for');
             assert.match(page, /last ran <time datetime="[^"]+">/, 'the saved search does not say when it last ran');
-            assert.ok(page.includes('one OpenVibe account'), 'the alerts are not said to be one account across the network');
+            assert.ok(page.includes('Alerts for a search come from OpenVibe.Watch, on the same account.'), 'the alerts are not said to come from Watch on the same account');
             assert.ok(page.includes('openvibe.watch'), 'there is no link to Watch');
             // And the search it keeps is the search it runs.
             assert.match(page, /href="\/jobs\?q=engineer&amp;remote=true"/, 'no link to run it again');
