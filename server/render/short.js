@@ -27,7 +27,7 @@ const str = (v) => (v && typeof v === 'object' && typeof v.s === 'string') ? v.s
 function foldBlock({ id, head, html, bare = false }) {
     const key = `fold-${esc(id)}`;
     return `<div class="fold${bare ? ' fold-bare' : ''}" id="${key}">`
-        + `<input class="fold-toggle" type="checkbox" id="${key}-open">`
+        + `<input class="fold-toggle" type="checkbox" id="${key}-open" checked>`
         + `<label class="fold-h" for="${key}-open">${str(head)}<span class="fold-mark" aria-hidden="true"></span></label>`
         + `<div class="fold-body">${str(html)}</div></div>`;
 }
@@ -41,10 +41,9 @@ function foldBlock({ id, head, html, bare = false }) {
  */
 function pickBlock({ key, label, head = '', panes, checked = '' }) {
     if (!panes.length) return '';
-    const first = panes.find((p) => p.id === checked) ? checked : panes[0].id;
-    const chips = panes.map((p) => `<input type="radio" name="pick-${esc(key)}" id="pk-${esc(key)}-${esc(p.id)}" value="${esc(p.id)}"${p.id === first ? ' checked' : ''}><label for="pk-${esc(key)}-${esc(p.id)}">${esc(p.label)}</label>`).join('');
-    const body = panes.map((p) => `<div class="pick-pane" id="pp-${esc(key)}-${esc(p.id)}">${str(p.html)}</div>`).join('');
-    return `<div class="pick" id="pick-${esc(key)}"><div class="pick-bar"><div class="pick-head"><h2>${esc(head || label)}</h2></div><div class="pick-row" role="radiogroup" aria-label="${esc(label)}">${chips}</div></div><div class="pick-body">${body}</div></div>`;
+    // Every block is on the page on every screen (the owner's rule, 2026-10-31); the chip row that picked one at a
+    // time on a phone is gone.
+    return panes.map((p) => `<div class="pick-pane" id="pp-${esc(key)}-${esc(p.id)}">${str(p.html)}</div>`).join('');
 }
 
 /** The rule that shows the picked block of a pick block: one per block, so the CSS is written for the page. */

@@ -25,56 +25,38 @@ const { boot, check, done } = require('./helpers/boot');
                 row.remote, row.tags, 'permanent', row.salary, 'A short excerpt of the listing.', `${row.title} ${row.company} ${row.tags}`.toLowerCase(), now]);
     }
 
-    await check('the home picks one section at a time on a phone, and keeps every section in the page', async () => {
+    await check('the home shows every section on a phone, and keeps every one in the page', async () => {
         const r = await t.get('/');
         assert.strictEqual(r.status, 200, r.text.slice(0, 300));
         const home = r.text;
-        assert.match(home, /<div class="pick" id="pick-browse">/, 'the browse block is on the home');
-        assert.match(home, /<div class="pick-row" role="radiogroup" aria-label="Browse the listings">/, 'the chips are on the home');
-        // One chip per section, in the order the sections have, and the newest listings are the one a phone shows.
-        const chips = [...home.matchAll(/<input type="radio" name="pick-browse" id="pk-browse-([a-z]+)" value="\1"( checked)?><label for="pk-browse-\1">[^<]+<\/label>/g)];
+        assert.ok(!home.includes('pick-browse'), 'the browse chip row is gone');
         const panes = [...home.matchAll(/<div class="pick-pane" id="pp-browse-([a-z]+)">/g)].map((m) => m[1]);
         assert.ok(panes.length >= 3, `the sections are all in the page (${panes.length})`);
-        assert.deepStrictEqual(chips.map((m) => m[1]), panes, 'one chip per section, in the same order');
-        assert.deepStrictEqual(chips.filter((m) => m[2]).map((m) => m[1]), ['latest'], 'the newest listings are picked first');
         // The sections themselves are in the page, not removed.
         for (const h of ['Browse by field', 'Jobs by city', 'Latest remote jobs', 'Newest jobs that state the pay', 'Companies with the most openings']) {
             assert.ok(home.includes(`>${h}</h2>`), `${h} is in the page`);
         }
         // The search stays first, and the newest listings come with it.
-        assert.ok(home.indexOf('id="search"') < home.indexOf('id="pick-browse"'), 'the search stays first');
         assert.ok(home.indexOf('id="search"') < home.indexOf('id="h-latest"'), 'the newest listings stay with the search');
     });
 
-    await check('the parts a reader rarely need fold, closed on a phone and open where there is room', async () => {
+    await check('the parts a reader rarely need start open, and no card or chip is hidden', async () => {
         const r = await t.get('/');
         const home = r.text;
-        const panes = [...home.matchAll(/<div class="pick-pane" id="pp-browse-([a-z]+)">/g)].map((m) => m[1]);
         for (const [id, title] of [['faq', 'Questions people ask'], ['network', 'Part of OpenVibe'], ['shipped', 'Recently shipped on OpenVibe.Work']]) {
-            const re = new RegExp(`<div class="fold[^"]*" id="fold-${id}"><input class="fold-toggle" type="checkbox" id="fold-${id}-open">`
+            const re = new RegExp(`<div class="fold[^"]*" id="fold-${id}"><input class="fold-toggle" type="checkbox" id="fold-${id}-open" checked>`
                 + `<label class="fold-h" for="fold-${id}-open"><h2[^>]*>[^<]*${title}[^<]*</h2>.*?<div class="fold-body">`);
-            assert.ok(re.test(home), `the ${title} fold is on the home`);
+            assert.ok(re.test(home), `the ${title} fold is on the home and starts open`);
         }
         // The parts themselves are in the page, not removed.
         assert.match(home, /<div class="home-faq">/, 'the questions are in the page');
         assert.match(home, /class="sc-net"/, 'the rest of OpenVibe is in the page');
         assert.match(home, /data-ov-shipped="list"/, 'what shipped is in the page');
-        // The CSS: the chips and their rule under 640 px and only with :has(); the fold closed on a phone, open where
-        // there is room.
         const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'home.css'), 'utf8');
-        const pick = css.slice(css.indexOf('/* Pick (the owner'));
-        assert.ok(pick.length > 0, 'the pick rules are in home.css');
-        assert.match(pick, /\.pick-head, \.pick-row \{ display: none; \}/, 'the chips are hidden by default');
-        assert.match(pick, /@supports selector\(:has\(\*\)\) \{\n  @media \(max-width: 640px\) \{/, 'the chips are only under 640 px and only with :has()');
-        assert.match(pick, /\.pick-pane \{ display: none; \}/, 'one section at a time');
-        const head = home.slice(home.indexOf('<style>@supports selector(:has(*))'));
-        assert.ok(head.startsWith('<style>@supports selector(:has(*))'), 'the rule that shows the picked section is on the page');
-        for (const id of panes) assert.ok(head.includes(`.pick:has(#pk-browse-${id}:checked) #pp-browse-${id}{display:block}`), `${id} shows when its chip is picked`);
+        assert.ok(!/\.home-cards\.short > li:nth-child\(n\+7\)/.test(css), 'no job card is hidden');
+        assert.ok(!/\.home-chips > li:nth-child\(n\+9\)/.test(css), 'no chip is hidden');
         const fold = css.slice(css.indexOf('/* The fold (the owner'));
-        assert.match(fold, /\.fold-body \{ display: none; \}/, 'the fold body is closed by default');
-        assert.match(fold, /\.fold-toggle:checked ~ \.fold-body \{ display: block; \}/, 'the title row opens it');
-        assert.match(fold, /\.fold-toggle \{ display: none; \}/, 'the toggle is hidden where there is room');
-        assert.match(fold, /\.fold-body \{ display: block; \}/, 'the body is open where there is room');
+        assert.match(fold, /\.fold-toggle:checked ~ \.fold-body \{ display: block; \}/, 'an open fold shows its body');
     });
 
     await t.close();
