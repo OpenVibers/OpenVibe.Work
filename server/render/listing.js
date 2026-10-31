@@ -34,7 +34,22 @@ const meta = (row) => ({
     excerpt: row.excerpt,
     posted_at: row.posted_at || null,
     source: row.source,
+    source_id: row.source_id || '',
+    fetched_at: row.fetched_at || null,
+    first_seen_at: row.first_seen_at || null,
+    last_seen_at: row.last_seen_at || null,
+    expired: !!row.expired,
 });
+
+/**
+ * The salary, in the board's own words, or the plain truth that the board gave none: never a guess, never a range we
+ * worked out ourselves. The same line is on the card and on the listing's own page, so they cannot drift apart.
+ */
+function salaryLine(row, { note = false } = {}) {
+    const salary = String((row && row.salary) || '').trim();
+    if (!salary) return html`<p class="job-pay muted">Salary not listed by the employer</p>`;
+    return html`<p class="job-pay">Salary: ${salary}${note ? html` <span class="muted small">(as the board gives it)</span>` : ''}</p>`;
+}
 
 /** The source's name, linked to the original listing: the attribution its terms require, in one element. */
 function sourceLink(row, source) {
@@ -42,9 +57,14 @@ function sourceLink(row, source) {
     return html`<a class="job-source" href="${row.url}" rel="nofollow noopener external" target="_blank">${name}</a>`;
 }
 
-/** The one-line provenance: where it came from, linked back, and when we read that. */
+/**
+ * The one-line provenance: where it came from, linked back, when the board posted it, and when we first saw it — the
+ * board named, so a reader can tell one board's freshness from another's.
+ */
 function provenance(row, source) {
-    return html`<p class="job-provenance"><span class="muted">Listing from</span> ${sourceLink(row, source)}${row.posted_at ? html` <span class="muted">· posted ${dateWords(row.posted_at)}</span>` : ''}</p>`;
+    const name = (source && source.name) || row.source;
+    const firstSeen = row.first_seen_at ? dateWords(row.first_seen_at) : '';
+    return html`<p class="job-provenance"><span class="muted">Listing from</span> ${sourceLink(row, source)}${row.posted_at ? html` <span class="muted">· posted ${dateWords(row.posted_at)}</span>` : ''}${firstSeen ? html` <span class="muted">· first seen on ${name} on ${firstSeen}</span>` : ''}</p>`;
 }
 
 /** A company's initial on a tint picked from its name: the same company always gets the same tile. */
@@ -63,7 +83,8 @@ ${initialTile(l.company)}
 <div class="job-main">
 <h3 class="job-title"><a href="/jobs/${l.id}">${l.title}</a></h3>
 <p class="job-meta"><span class="job-company">${l.company}</span><span class="job-location">${l.location || 'Location not given'}</span></p>
-<p class="job-chips">${l.remote ? html`<span class="chip chip-ok">Remote</span>` : ''}${l.job_type ? html`<span class="chip">${l.job_type}</span>` : ''}${l.salary ? html`<span class="chip chip-pay">${l.salary}</span>` : ''}${l.tags.slice(0, 3).map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>
+<p class="job-chips">${l.remote ? html`<span class="chip chip-ok">Remote</span>` : ''}${l.job_type ? html`<span class="chip">${l.job_type}</span>` : ''}${l.tags.slice(0, 3).map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>
+${salaryLine(row)}
 <p class="job-excerpt">${l.excerpt}</p>
 ${provenance(row, source)}
 </div>
@@ -104,4 +125,4 @@ function jobPosting(row, { siteUrl }) {
 /** The excerpt as plain text, for the meta description and the API. */
 const plainExcerpt = (row) => stripHtml(row.excerpt || '');
 
-module.exports = { listingItem, listingList, sourceLink, provenance, jobPosting, dateWords, plainExcerpt, meta };
+module.exports = { listingItem, listingList, sourceLink, provenance, jobPosting, dateWords, plainExcerpt, meta, salaryLine };

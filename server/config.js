@@ -97,6 +97,10 @@ function load(env = process.env) {
             // hn-whoishiring key in Sources); its resolver reads the thread, never Work itself.
             hnWhoishiringFrom: String(env.WORK_HN_WHOISHIRING_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
         },
+        // The disclosure rate the jobs page shows (server/jobs/store.js): of the last N listings we fetched, how
+        // many carried a salary. N is configuration, so the number on the page is never typed in by hand.
+        disclosure: { sample: Math.max(1, int(env.WORK_DISCLOSURE_SAMPLE, 100)) },
+
         // The background ingest (server/ingest/): off unless WORK_INGEST=on, so a test and a development run
         // never call a job board. Once on, each source is fetched at most every intervalMs (Remotive's terms
         // allow about four calls a day: six hours is exactly four), and listings not seen for retentionDays go.

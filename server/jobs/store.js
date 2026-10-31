@@ -142,7 +142,25 @@ async function facets(s, f) {
     return { remote, type: typeRows.map((r) => ({ type: r.t, count: num(r.n) })), scope: remote.true + remote.false };
 }
 
-const getListing = (s, id) => (LISTING_ID.test(String(id)) ? s.db.maybe('SELECT * FROM work_listings WHERE id = $1 AND expired = false', [id]) : Promise.resolve(null));
+/**
+ * One listing. A live one by default; with `includeExpired` the row is read even when the board stopped showing it,
+ * so the page can say that it is gone and when we last saw it, instead of pretending the row never existed.
+ */
+const getListing = (s, id, { includeExpired = false } = {}) => (LISTING_ID.test(String(id))
+    ? s.db.maybe(`SELECT * FROM work_listings WHERE id = $1${includeExpired ? '' : ' AND expired = false'}`, [id])
+    : Promise.resolve(null));
+
+/**
+ * Our own disclosure rate, measured from the rows we fetched: of the last `sample` listings, how many carried a
+ * salary. The sample size is configuration (WORK_DISCLOSURE_SAMPLE); both counts are the database's own.
+ */
+async function disclosureRate(s, { sample = 100 } = {}) {
+    const n = Math.min(1000, Math.max(1, Number(sample) || 100));
+    const row = await s.db.maybe(
+        `SELECT count(*) AS n, count(*) FILTER (WHERE coalesce(salary, '') <> '') AS salaried
+         FROM (SELECT salary FROM work_listings ORDER BY fetched_at DESC, id DESC LIMIT $1) t`, [n]);
+    return { sample: n, total: num(row && row.n), salaried: num(row && row.salaried) };
+}
 
 /** How many live listings each source has, and when one was last seen — the home page's provenance line. */
 async function countsBySource(s) {
@@ -355,7 +373,7 @@ function decodeCursor(v) {
 }
 
 module.exports = {
-    search, facets, getListing, countsBySource, listRecent, listSalaried, homeSummary, recentIds, upsertListing, upsertListings, expireListing, liveCount,
+    search, facets, getListing, disclosureRate, countsBySource, listRecent, listSalaried, homeSummary, recentIds, upsertListing, upsertListings, expireListing, liveCount,
     beginFetch, finishFetch, sourceFetches, expire, listSaved, createSaved, getSaved, deleteSaved, newCount, touchSaved, toWire, toSavedWire, filtersOf,
     idOf, encodeCursor, decodeCursor, PAGE_SIZE, MAX_PAGE, MAX_SAVED, LISTING_ID,
 };
