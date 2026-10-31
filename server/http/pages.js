@@ -13,6 +13,7 @@
 const ovServe = require('openvibe-shared/serve');
 const frame = require('openvibe-shared/frame');
 const showcase = require('openvibe-shared/showcase');
+const kit = require('openvibe-shared/kit');
 const cache = require('openvibe-shared/cache-policy');
 const { asyncRouter } = require('./router');
 const { createDiscoveryRoutes, homeJsonLd } = require('./discovery');
@@ -42,8 +43,19 @@ function createPageRoutes(ctx) {
     const subjectOf = (req) => `user:${req.viewer.subject}`;
     const sourceOf = (row) => sources.byId(row.source);
 
+    /**
+     * Our own disclosure rate, measured from the listings we fetched: how many of the last N carried a salary. N
+     * comes from configuration (WORK_DISCLOSURE_SAMPLE) and both counts are the database's own, so the line on the
+     * page is never a number typed in by hand.
+     */
+    const disclosureLine = (d) => {
+        if (!d || !d.total) return 'No listing has been fetched yet, so we cannot say what share of them state a salary.';
+        const pct = Math.round((d.salaried / d.total) * 100);
+        return `Of the last ${d.total} listing${d.total === 1 ? '' : 's'} we fetched, ${d.salaried} included a salary (${pct}%).`;
+    };
+
     // ── Search: one form, one set of filters, one place they are read ──
-    const filterForm = (filters, { facets = null, action = '/jobs' } = {}) => html`<form class="job-search" method="get" action="${action}" role="search">
+    const filterForm = (filters, { facets = null, disclosure = null, action = '/jobs' } = {}) => html`<form class="job-search" method="get" action="${action}" role="search">
 <label class="sr-only" for="q">Search listings</label>
 <input type="search" id="q" name="q" value="${filters.q}" placeholder="Job title, skill, company" maxlength="120">
 <label class="sr-only" for="location">Location</label>
@@ -59,20 +71,20 @@ function createPageRoutes(ctx) {
 <button class="sc-btn sc-primary" type="submit">Search</button>
 ${(filters.q || filters.remote || filters.type || filters.location) ? html`<a class="job-clear" href="${action}">Clear</a>` : ''}
 </form>
-${facets ? facetBar(filters, facets, action) : ''}`;
+${facets ? facetBar(filters, facets, action, disclosure) : ''}`;
 
     /** The facets: what is actually in the result set, as links that set one filter and keep the rest. */
-    const facetBar = (filters, facets, action) => {
+    const facetBar = (filters, facets, action, disclosure = null) => {
         const link = (patch, label, active, count) => html`<li${active ? raw(' class="on"') : ''}><a href="${withFilters(filters, { ...patch, cursor: null }, action)}">${label}${count == null ? '' : html` <span class="facet-n">${count}</span>`}</a></li>`;
         return html`<div class="job-facets">
-<p class="facet-head"><strong>${facets.matches}</strong> listing${facets.matches === 1 ? '' : 's'} match${facets.matches === 1 ? 'es' : ''} this search</p>
+<p class="facet-head"><strong>${facets.matches}</strong> listing${facets.matches === 1 ? '' : 's'} match${facets.matches === 1 ? 'es' : ''} this search${disclosure ? html` <span class="muted">· ${disclosureLine(disclosure)}</span>` : ''}</p>
 <ul class="facets" aria-label="Remote"><li class="facet-label">Workplace</li>
 ${link({ remote: null }, 'Any', filters.remote === '', null)}
 ${link({ remote: 'true' }, 'Remote', filters.remote === 'true', facets.remote.true)}
 ${link({ remote: 'false' }, 'On-site', filters.remote === 'false', facets.remote.false)}
 </ul>
 ${facets.type.length ? html`<ul class="facets" aria-label="Job type"><li class="facet-label">Type</li>
-${facets.type.map((t) => link({ type: t.type }, t.type, filters.type === t.type, t.count))}
+${facets.type.map((t) => link({ type: t.type }, listing.jobTypeLabel(t.type), filters.type === t.type, t.count))}
 </ul>` : ''}
 </div>`;
     };
@@ -239,7 +251,7 @@ ${raw(foldBlock({
         const entries = p.rows.map((row) => {
             const l = listing.meta(row);
             const at = isoOf(l.posted_at) || isoOf(row.fetched_at) || new Date().toISOString();
-            const where = [l.location, l.remote ? 'Remote' : '', l.job_type].filter(Boolean).join(' · ');
+            const where = [l.location, l.remote ? 'Remote' : '', listing.jobTypeLabel(l.job_type)].filter(Boolean).join(' · ');
             return `<entry><id>${xml(`${config.baseUrl}/jobs/${row.id}`)}</id><title>${xml(`${l.title} at ${l.company}`)}</title>`
                 + `<link rel="alternate" type="text/html" href="${xml(`${config.baseUrl}/jobs/${row.id}`)}"/><updated>${at}</updated>`
                 + `<author><name>${xml(sourceOf(row).name)}</name></author>`
@@ -261,7 +273,10 @@ ${entries.join('\n')}
         const filters = store.filtersOf(req.query);
         const cursor = store.decodeCursor(req.query.cursor);
         // A cursor we did not write is not a position in the result set; start from the top rather than guess.
-        const p = await store.search(s, filters, { cursor });
+        const [p, disclosure] = await Promise.all([
+            store.search(s, filters, { cursor }),
+            store.disclosureRate(s, { sample: config.disclosure.sample }),
+        ]);
         const nextUrl = p.next ? withFilters(filters, { cursor: store.encodeCursor(p.next) }, '/jobs') : null;
         const described = describe(filters);
         page(req, res, {
@@ -272,20 +287,20 @@ ${entries.join('\n')}
             crumbs: [{ label: 'Jobs' }],
             styles: [showcase.STYLESHEET],
             body: html`<h1>Jobs</h1>
-${filterForm(filters, { facets: p.facets })}
+${filterForm(filters, { facets: p.facets, disclosure })}
 <p class="job-alert"><a class="sc-btn" href="${alertHref(filters)}">Get alerts for this search</a> <span class="muted small">OpenVibe.Watch follows <a href="${feedPath(filters)}">its feed</a> and tells you when a new listing appears.</span></p>
 ${listing.listingList(p.rows, { sourceOf, empty: 'No listings match this search. Try fewer words, or clear a filter and search again.' })}
 <nav class="job-pager" aria-label="Pages">
 ${cursor ? html`<a class="sc-btn" href="${withFilters(filters, { cursor: null }, '/jobs')}">First page</a>` : ''}
 ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</a>` : html`<span class="muted">That is every listing matching this search.</span>`}
 </nav>
-<p class="muted small">Read the full listing on its source: each entry links back to the board it came from.</p>`,
+<p class="muted small">Each listing is a short excerpt that links to its board. You apply there; we host no descriptions, CVs or apply buttons.</p>`,
         });
     });
 
     // ── One listing ──────────────────────────────────────────
     r.get('/jobs/:id', async (req, res) => {
-        const row = await store.getListing(s, req.params.id);
+        const row = await store.getListing(s, req.params.id, { includeExpired: true });
         if (!row) {
             return page(req, res, {
                 title: 'Listing not found',
@@ -294,34 +309,57 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
         }
         const src = sourceOf(row);
         const l = listing.meta(row);
+        const fetchedOn = row.fetched_at ? listing.dateWords(row.fetched_at) : 'a date we did not record';
+        // A listing the board stopped showing is out of the search, but the old link still answers: it says the
+        // listing is gone and when we last saw it, rather than pretending the row never existed.
+        if (row.expired) {
+            const lastSeen = row.last_seen_at ? listing.dateWords(row.last_seen_at) : '';
+            return page(req, res, {
+                title: 'No longer on the board',
+                description: `This listing is no longer on ${src.name}. We last saw it on ${lastSeen || 'a date we did not record'}.`,
+                crumbs: [{ label: 'Jobs', href: '/jobs' }, { label: 'No longer on the board' }],
+                styles: [showcase.STYLESHEET],
+                body: html`<h1>No longer on the board</h1>
+<p class="job-gone"><span class="badge bad">Gone</span> This listing is no longer on the board.${lastSeen ? html` Last seen on ${src.name} on ${lastSeen}.` : ' We did not record the day we last saw it.'}</p>
+<p>${l.title} at ${l.company} is not in our listings any more, so it is not in the search either. The board's own listing is still <a href="${l.url}" rel="nofollow noopener external" target="_blank">here</a>, but the board may have taken it down.</p>
+<p><a class="sc-btn" href="/jobs">Search the listings</a></p>`,
+            }, 404);
+        }
         const tracked = signedIn(req) ? await applications.applicationByListing(s, subjectOf(req), row.id) : null;
         page(req, res, {
             index: true, cache: PUBLIC_CACHE,
             title: `${l.title} at ${l.company}`,
             description: listing.plainExcerpt(row).slice(0, 300) || `${l.title} at ${l.company}, from ${src.name}.`,
             crumbs: [{ label: 'Jobs', href: '/jobs' }, { label: l.title }],
-            styles: [showcase.STYLESHEET],
+            styles: [showcase.STYLESHEET, 'kit.css'],
             jsonLd: [listing.jobPosting(row, { siteUrl: config.baseUrl })],
             body: html`<article class="job">
 <h1>${l.title}</h1>
-<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${l.job_type}</span>` : ''}</p>
-${l.salary ? html`<p class="job-salary"><strong>Salary:</strong> ${l.salary} <span class="muted small">(as the board gives it)</span></p>` : ''}
-${l.tags.length ? html`<ul class="job-tags">${l.tags.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
+<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${listing.jobTypeLabel(l.job_type)}</span>` : ''}</p>
+${listing.salaryLine(row, { note: true })}
+${l.tags.length ? html`<p class="job-chips">${l.tags.map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>` : ''}
 <section class="job-excerpt-block" aria-labelledby="h-excerpt"><h2 id="h-excerpt">Excerpt</h2>
 <p>${l.excerpt}</p>
-<p class="muted small">This is a short excerpt only. The full listing stays on the board.</p></section>
-<p class="job-apply"><a class="sc-btn sc-primary" href="${l.url}" rel="nofollow noopener external" target="_blank">Read the full listing on ${src.name}</a></p>
+<p class="muted small">Short excerpt only. You apply on ${src.name}.</p></section>
+<p class="job-apply"><a class="sc-btn sc-primary" href="${l.url}" rel="nofollow noopener external" target="_blank">Read the full listing on ${src.name}</a> <span class="muted small">Read from ${src.name} on ${fetchedOn}</span></p>
 ${signedIn(req)
             ? (tracked
                 ? html`<p class="job-track"><span class="badge ok">Tracked: ${STATUS_LABEL[tracked.status] || tracked.status}</span> <a href="/applications/${tracked.id}">Open your application</a></p>`
                 : html`<form class="inline" method="post" action="/jobs/${row.id}/track"><button class="sc-btn" type="submit">Track this job</button></form>`)
             : html`<p class="muted small"><a rel="nofollow" href="/auth/login?next=%2Fjobs%2F${row.id}">Sign in</a> to track this job and ask your agent for help applying.</p>`}
-<dl class="job-facts">
+${raw(kit.fold({
+                id: 'job-provenance',
+                title: 'Where this listing came from',
+                meta: src.name,
+                body: String(html`<dl class="job-facts">
 <dt>Source</dt><dd>${sourceLine(row)} — <a href="/sources#${src.id}">its terms as applied</a></dd>
 ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
 <dt>Read from the board</dt><dd>${time(row.fetched_at)}</dd>
+<dt>First seen</dt><dd>${time(row.first_seen_at)}</dd>
+<dt>Last seen</dt><dd>${time(row.last_seen_at)}</dd>
 <dt>Board's id</dt><dd><code>${row.source_id}</code></dd>
-</dl>
+</dl>`),
+            }))}
 <p class="muted small">Found a problem with this listing, or want it gone? It is the board's listing, not ours — the source above is where it lives. In code: <code>GET /api/v1/jobs/${row.id}</code>.</p>
 </article>`,
         });
@@ -422,11 +460,12 @@ ${c.count > c.rows.length ? html`<p><a class="sc-btn" href="/jobs?${new URLSearc
 <p>${rows.length ? html`You are keeping ${rows.length} search${rows.length === 1 ? '' : 'es'}. The count is how many listings appeared since you last opened this page.` : 'You are not keeping any search yet.'}</p>
 ${withCounts.length ? html`<ul class="saved-list">${withCounts.map(({ row, count }) => html`<li class="saved-item">
 <p class="saved-query"><a href="${store.toSavedWire(row).search_path}">${describeSaved(row)}</a> <span class="badge${count ? ' ok' : ''}">${count ? `${count} new` : 'nothing new'}</span></p>
-<p class="muted small">Saved ${time(row.created_at)} · last looked ${row.last_seen_at ? time(row.last_seen_at) : 'never'}</p>
+<p class="muted small">Saved ${time(row.created_at)} · last ran ${row.last_seen_at ? time(row.last_seen_at) : 'never'}</p>
 <div class="saved-actions"><a class="sc-btn" href="${alertHref(store.filtersOf({ q: row.query, remote: row.remote, type: row.type, location: row.location }))}">Get alerts</a> <form method="post" action="/saved/${row.id}/delete" class="inline"><button class="sc-btn" type="submit">Forget it</button></form></div>
 </li>`)}</ul>` : ''}
 ${savedForm(req, initial)}
 <p class="muted small">Get alerts opens OpenVibe.Watch with the search's feed filled in: Watch checks it and tells you (or runs your agent) when a listing that fits appears. Every search has its feed at <code>/jobs.atom</code> with the same filters.</p>
+<p class="muted small">Alerts for a search come from OpenVibe.Watch, on the same account.</p>
 <p class="muted small">In code: <code>GET /api/v1/saved-searches</code>.</p>`,
         });
     });
