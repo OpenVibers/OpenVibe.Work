@@ -56,15 +56,6 @@ function createPageRoutes(ctx) {
     };
 
     // ── Search: one form, one set of filters, one place they are read ──
-    /**
-     * The type filter, in one language: the nine canonical types (server/jobs/job-types.js). A reader who arrives
-     * with an older link that carries a board's own words keeps that value in the list, so the filter is never
-     * quietly changed under them — it still works, exactly as it did.
-     */
-    const typeSelect = (value) => html`<option value=""${!value ? raw(' selected') : ''}>Any job type</option>
-${value && !jobTypes.canonicalKey(value) ? html`<option value="${value}"${raw(' selected')}>${value} (as typed)</option>` : ''}
-${jobTypes.CANONICAL.map((t) => html`<option value="${t.key}"${value === t.key ? raw(' selected') : ''}>${t.label}</option>`)}`;
-
     const filterForm = (filters, { facets = null, disclosure = null, action = '/jobs' } = {}) => html`<form class="job-search" method="get" action="${action}" role="search">
 <label class="sr-only" for="q">Search listings</label>
 <input type="search" id="q" name="q" value="${filters.q}" placeholder="Job title, skill, company" maxlength="120">
@@ -77,7 +68,7 @@ ${jobTypes.CANONICAL.map((t) => html`<option value="${t.key}"${value === t.key ?
 <option value="false"${filters.remote === 'false' ? raw(' selected') : ''}>On-site only</option>
 </select>
 <label class="sr-only" for="type">Job type</label>
-<select id="type" name="type">${typeSelect(filters.type)}</select>
+<input type="text" id="type" name="type" value="${filters.type}" placeholder="Job type" maxlength="60">
 <button class="sc-btn sc-primary" type="submit">Search</button>
 ${(filters.q || filters.remote || filters.type || filters.location) ? html`<a class="job-clear" href="${action}">Clear</a>` : ''}
 </form>
@@ -385,7 +376,7 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
 <fieldset><legend>Keep this search</legend>
 <label>Words <input type="text" name="q" value="${filters.q}" maxlength="120" placeholder="Job title, skill, company"></label>
 <label>Location <input type="text" name="location" value="${filters.location}" maxlength="120"></label>
-<label>Job type <select name="type">${typeSelect(filters.type)}</select></label>
+<label>Job type <input type="text" name="type" value="${filters.type}" maxlength="60"></label>
 <label>Workplace <select name="remote">
 <option value=""${filters.remote === '' ? raw(' selected') : ''}>Any</option>
 <option value="true"${filters.remote === 'true' ? raw(' selected') : ''}>Remote only</option>

@@ -119,7 +119,7 @@ const cardOf = (html, id) => {
             assert.ok(list.includes('we host no descriptions, CVs or apply buttons'), 'the list page does not say it either');
         });
 
-        await check('the job types are in words on the cards, in the facet and on the page, and the filter keeps the raw value', async () => {
+        await check('the job types are in words on the cards, in the facet and on the page, and the filter takes the canonical key', async () => {
             const jobs = (await t.get('/api/v1/jobs?limit=100')).json().jobs;
             const one = jobs.find((j) => j.job_type === 'full_time');
             const two = jobs.find((j) => j.job_type === 'permanent, full_time');
@@ -129,7 +129,8 @@ const cardOf = (html, id) => {
             assert.ok(cardOf(page, two.id).includes('<span class="chip">Permanent, Full time</span>'), 'the card does not say the job type in words');
             assert.ok(!page.includes('permanent, full_time'), 'a raw job type is shown');
             assert.match(page, />Full time <span class="facet-n">/, 'the facet is not in words');
-            assert.ok(page.includes('href="/jobs?type=full_time"'), 'the facet does not keep the raw query value');
+            // The facet links the canonical type, so the chip and the filter speak the same language.
+            assert.ok(page.includes('href="/jobs?type=full-time"'), 'the facet does not link the canonical type');
             // The listing's own page says it in words too, and its tags are the cards' chips.
             const detail = (await t.get(`/jobs/${one.id}`)).text;
             assert.ok(detail.includes('<span class="job-type">Full time</span>'), 'the page does not say the job type in words');

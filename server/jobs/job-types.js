@@ -115,14 +115,20 @@ for (const key of KEYS) {
 /**
  * A raw job_type → the canonical keys it names. The raw value is a board's list of words, so it is read part by part
  * (on commas and slashes) and every part is matched against the synonyms. A listing that names two types ("Permanent,
- * Full time") gets both, so it counts under each and either filter finds it. A raw value that names no type (a
- * seniority, a title, a company's name, nothing at all) gets none: it is dropped, never shown raw.
+ * Full time") gets both, so it counts under each and either filter finds it; the keys come in the order the board
+ * wrote them, so a card reads the way the board meant it. A raw value that names no type (a seniority, a title, a
+ * company's name, nothing at all) gets none: it is dropped, never shown raw.
  */
 function mapTypes(raw) {
     const text = String(raw == null ? '' : raw).toLowerCase().trim();
     if (!text) return [];
     const parts = text.split(/[,;/]/).map((p) => p.trim()).filter(Boolean);
-    const named = KEYS.filter((key) => COMPILED[key].some((re) => parts.some((part) => re.test(part))));
+    const named = [];
+    for (const part of parts) {
+        for (const key of KEYS) {
+            if (!named.includes(key) && COMPILED[key].some((re) => re.test(part))) named.push(key);
+        }
+    }
     return named;
 }
 

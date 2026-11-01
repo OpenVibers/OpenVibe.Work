@@ -41,10 +41,10 @@ const jobTypes = require('../server/jobs/job-types');
     });
 
     await check('a listing that names two types is both, and the words that are not types are dropped', () => {
-        assert.deepStrictEqual(jobTypes.mapTypes('Experienced, Permanent, Full time'), ['full-time', 'permanent']);
-        assert.deepStrictEqual(jobTypes.mapTypes('permanent, full_time'), ['full-time', 'permanent']);
+        assert.deepStrictEqual(jobTypes.mapTypes('Experienced, Permanent, Full time'), ['permanent', 'full-time']);
+        assert.deepStrictEqual(jobTypes.mapTypes('permanent, full_time'), ['permanent', 'full-time']);
         // A seniority is not a type: it is dropped, and the type beside it is kept.
-        assert.deepStrictEqual(jobTypes.mapTypes('Experienced, Permanent, Full time'), ['full-time', 'permanent']);
+        assert.deepStrictEqual(jobTypes.mapTypes('Experienced, Permanent, Full time'), ['permanent', 'full-time']);
         assert.deepStrictEqual(jobTypes.mapTypes('Berufserfahren'), []);
         assert.deepStrictEqual(jobTypes.mapTypes('Berufseinsteiger'), []);
         assert.deepStrictEqual(jobTypes.mapTypes('Mid-Senior'), []);
@@ -61,7 +61,7 @@ const jobTypes = require('../server/jobs/job-types');
     });
 
     await check('the labels are ours, and a reader\'s ?type= is read as a type or as plain words', () => {
-        assert.strictEqual(jobTypes.labelText('permanent, full_time'), 'Full time, Permanent');
+        assert.strictEqual(jobTypes.labelText('permanent, full_time'), 'Permanent, Full time');
         assert.strictEqual(jobTypes.labelText('Berufserfahren'), '', 'nothing is shown when no type is named');
         assert.strictEqual(jobTypes.label('full-time'), 'Full time');
         assert.strictEqual(jobTypes.canonicalKey('Full time'), 'full-time');
