@@ -138,6 +138,19 @@ ${facets.type.map((t) => link({ type: t.type }, t.label, filters.type === t.type
         const hero = showcase.hero({
             eyebrow: `${SITE_NAME} · ${TAGLINE}`,
             title: 'Find work.',
+            // The hero's picture is this site's own (2026-11-01): it drew the generic aura, the same on six homes.
+            // What a job seeker has here, around the listings.
+            orbit: {
+                label: 'What you can do here',
+                center: { title: 'Listings', sub: 'from public boards' },
+                inner: [
+                    { icon: 'ov:search', label: 'Search', href: '#search' },
+                    { icon: 'ov:map', label: 'Remote', href: '/jobs?remote=true' },
+                    { icon: 'ov:bell', label: 'Alerts', href: '#search' },
+                    { icon: 'ov:actor', label: 'Your agent', href: 'https://openvibe.actor/' },
+                    { icon: 'ov:link', label: 'Sources', href: '/sources' },
+                ],
+            },
             accent: 'Every listing shows where it came from.',
             lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look. Sign in to keep searches, get alerts, track the jobs you apply to, and have your OpenVibe.Actor agent help prepare each application.`,
             // Two, so they sit side by side on a phone; where the listings come from is a section below.
