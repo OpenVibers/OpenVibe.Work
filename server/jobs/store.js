@@ -10,10 +10,10 @@
  */
 const crypto = require('crypto');
 const places = require('./places');
+const jobTypes = require('./job-types');
 
 const PAGE_SIZE = 30;
 const MAX_PAGE = 100;
-const TYPE_FACETS = 12;
 
 // ── ids ─────────────────────────────────────────────────────
 // A listing's id is derived from (source, source_id), so the same listing keeps the same URL on this site however
@@ -71,6 +71,10 @@ function toWire(row, { source } = {}) {
         remote: !!row.remote,
         tags: parseTags(row.tags),
         job_type: row.job_type || null,
+        // The board's own words, and the nine canonical types they name: both, so the API speaks the same language
+        // as the facet without losing what the board actually said.
+        job_types: jobTypes.mapTypes(row.job_type),
+        job_type_label: jobTypes.labelText(row.job_type) || null,
         salary: row.salary || null,
         excerpt: row.excerpt,
         posted_at: row.posted_at || null,
@@ -86,10 +90,35 @@ function toWire(row, { source } = {}) {
 const PARAM = {
     q: (n) => `($${n} = '' OR search_text LIKE $${n} ESCAPE '\\')`,
     remote: (n) => `($${n} = '' OR remote = ($${n} = 'true'))`,
-    type: (n) => `($${n} = '' OR lower(coalesce(job_type, '')) LIKE $${n} ESCAPE '\\')`,
     location: (n) => `(cardinality($${n}::text[]) = 0 OR lower(coalesce(location, '')) LIKE ANY ($${n}::text[]))`,
 };
-const valueOf = { q: (f) => (f.q ? like(f.q) : ''), remote: (f) => f.remote, type: (f) => (f.type ? like(f.type) : ''), location: (f) => places.patternsOf(f.location) };
+const valueOf = { q: (f) => (f.q ? like(f.q) : ''), remote: (f) => f.remote, location: (f) => places.patternsOf(f.location) };
+
+/**
+ * The filters as SQL and bound parameters. The type is the awkward one, and it is the reason this table exists: when
+ * the reader picked one of the nine canonical types, the listings are the ones whose own words name that type —
+ * the very patterns the facet counts with (server/jobs/job-types.js), so a chip and the link it carries can never
+ * disagree — and when they typed a board's own words, it is the plain text search of before. Nothing is built from
+ * what a caller typed: the patterns are ours and the words are bound parameters.
+ */
+function filterSql(f, start = 1) {
+    const args = [];
+    const push = (v) => { args.push(v); return start + args.length - 1; };
+    const qn = push(valueOf.q(f));
+    const rn = push(valueOf.remote(f));
+    const key = jobTypes.canonicalKey(f.type);
+    const kn = push(key || '');
+    const pn = push(key ? jobTypes.patternsOf(key) : []);
+    const sn = push(!key && f.type ? like(f.type) : '');
+    const ln = push(valueOf.location(f));
+    const sql = [
+        PARAM.q(qn),
+        PARAM.remote(rn),
+        `(($${kn} = '' AND $${sn} = '') OR ($${kn} <> '' AND lower(coalesce(job_type, '')) ~ ANY ($${pn}::text[])) OR ($${sn} <> '' AND lower(coalesce(job_type, '')) LIKE $${sn} ESCAPE '\\'))`,
+        PARAM.location(ln),
+    ].join(' AND ');
+    return { sql, args };
+}
 
 /**
  * One page of listings, newest first, plus the facets for the current scope. The cursor is the position of the last
@@ -98,12 +127,8 @@ const valueOf = { q: (f) => (f.q ? like(f.q) : ''), remote: (f) => f.remote, typ
 async function search(s, filters, { limit = PAGE_SIZE, cursor = null } = {}) {
     const f = filtersOf(filters);
     const n = Math.min(MAX_PAGE, Math.max(1, Number(limit) || PAGE_SIZE));
-    const args = [];
-    const where = ['expired = false'];
-    for (const name of ['q', 'remote', 'type', 'location']) {
-        args.push(valueOf[name](f));
-        where.push(PARAM[name](args.length));
-    }
+    const { sql, args } = filterSql(f);
+    const where = ['expired = false', sql];
     const scope = where.join(' AND ');
     // How many listings the reader's filters actually match, counted exactly rather than inferred from the page.
     const matches = Number(await s.db.value(`SELECT count(*) AS n FROM work_listings WHERE ${scope}`, args));
@@ -132,14 +157,24 @@ async function facets(s, f) {
     const args = [valueOf.q(f), valueOf.location(f)];
     const scope = `expired = false AND ${PARAM.q(1)} AND ${PARAM.location(2)}`;
     const remoteRows = await s.db.many(`SELECT remote, count(*) AS n FROM work_listings WHERE ${scope} GROUP BY remote`, args);
+    // The type facet counts the canonical types, not the boards' own strings: a listing that says "Permanent, Full
+    // time" counts under both, and a chip never shows a board's wording (server/jobs/job-types.js). The rows are read
+    // as the distinct wordings they are — a few hundred at most — and each is mapped, so the count is the count.
     const typeRows = await s.db.many(
-        `SELECT lower(job_type) AS t, count(*) AS n FROM work_listings
+        `SELECT lower(coalesce(job_type, '')) AS t, count(*) AS n FROM work_listings
          WHERE ${scope} AND coalesce(job_type, '') <> ''
-         GROUP BY lower(job_type) ORDER BY n DESC, t ASC LIMIT ${TYPE_FACETS}`, args);
+         GROUP BY 1 ORDER BY n DESC, t ASC`, args);
+    const counts = new Map();
+    for (const row of typeRows) {
+        for (const key of jobTypes.mapTypes(row.t)) counts.set(key, (counts.get(key) || 0) + num(row.n));
+    }
+    const type = jobTypes.KEYS.filter((key) => counts.has(key))
+        .map((key) => ({ type: key, label: jobTypes.label(key), count: counts.get(key) }))
+        .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
     const remote = { true: 0, false: 0 };
     for (const r of remoteRows) remote[r.remote ? 'true' : 'false'] = num(r.n);
     // `scope` counts the words and the location only — the population each facet below divides up.
-    return { remote, type: typeRows.map((r) => ({ type: r.t, count: num(r.n) })), scope: remote.true + remote.false };
+    return { remote, type, scope: remote.true + remote.false };
 }
 
 /**
@@ -232,12 +267,7 @@ const listSalaried = (s, limit = 4) => s.db.many(
 const recentIds = (s, limit = 1000) => s.db.many(
     `SELECT id FROM work_listings WHERE expired = false ORDER BY sort_at DESC, id DESC LIMIT $1`, [Math.min(1000, Math.max(1, limit))]);
 
-/** The listings first seen after a saved search's last look — what "new since you last looked" counts. */
-function newCountSql() {
-    return `SELECT count(*) AS n FROM work_listings
-            WHERE expired = false AND first_seen_at > $1
-              AND ${PARAM.q(2)} AND ${PARAM.remote(3)} AND ${PARAM.type(4)} AND ${PARAM.location(5)}`;
-}
+
 
 // ── ingest writes ───────────────────────────────────────────
 /**
@@ -344,7 +374,10 @@ const deleteSaved = (s, subject, id) => (SAVED_ID.test(String(id)) ? s.db.exec('
 /** The count of listings that first appeared after the saved search was last looked at. */
 async function newCount(s, row) {
     const f = filtersOf(row);
-    return Number(await s.db.value(newCountSql(), [row.last_seen_at, valueOf.q(f), valueOf.remote(f), valueOf.type(f), valueOf.location(f)]));
+    const { sql, args } = filterSql(f, 2);
+    return Number(await s.db.value(
+        `SELECT count(*) AS n FROM work_listings WHERE expired = false AND first_seen_at > $1 AND ${sql}`,
+        [row.last_seen_at, ...args]));
 }
 
 /** Mark a saved search as looked at (the moment its count stops being "new"). */

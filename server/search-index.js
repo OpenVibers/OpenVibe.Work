@@ -27,14 +27,14 @@ const INTERVAL_MS = 3_600_000;
 function describe(row) {
     const l = listing.meta(row);
     const src = sources.byId(row.source);
-    const where = [l.location, l.remote ? 'remote' : '', l.job_type].filter(Boolean).join(' · ');
+    const where = [l.location, l.remote ? 'remote' : '', listing.jobTypeLabel(l.job_type)].filter(Boolean).join(' · ');
     const excerpt = listing.plainExcerpt(row);
     return {
         listed: !row.expired,
         title: `${l.title} at ${l.company}`,
         summary: [where, l.salary].filter(Boolean).join(' · ') || excerpt.slice(0, 200) || null,
         body: [l.title, l.company, where, l.tags.join(', '), l.salary, excerpt].filter(Boolean).join('\n'),
-        facets: { source: row.source, remote: l.remote, type: l.job_type || null, location: l.location || null },
+        facets: { source: row.source, remote: l.remote, type: listing.jobTypeLabel(l.job_type) || null, location: l.location || null },
         authorship: { mode: 'imported' },
         provenance: [{
             service: 'work', type: 'board_listing', id: `${row.source}:${row.source_id}`.slice(0, 128),
