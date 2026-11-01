@@ -740,7 +740,7 @@ ${sources.SOURCES.map((src) => {
 </ul>
 ${table(['Route', 'Who', 'What it does'], [
                 [html`<code>GET /api/v1/jobs</code>`, 'public', html`Search: <code>?q=</code>, <code>?remote=true|false</code>, <code>?type=</code>, <code>?location=</code>, <code>?limit=</code> (to ${store.MAX_PAGE}), <code>?cursor=</code> (the <code>next</code> the previous page returned). Newest first, ${store.PAGE_SIZE} a page, with facets for remote and job type.`],
-                [html`<code>GET /api/v1/jobs/:id</code>`, 'public', 'One listing: the board\'s fields, the excerpt, the source, and <code>url</code> — the original listing to apply on.'],
+                [html`<code>GET /api/v1/jobs/:id</code>`, 'public', html`One listing: the board's fields, the excerpt, the source, and <code>url</code>, the original listing to apply on.`],
                 [html`<code>GET /api/v1/sources</code>`, 'public', 'The boards, each one\'s terms as applied, its listing count and when it was last read.'],
                 [html`<code>GET /api/v1/saved-searches</code>`, 'person', 'Your saved searches, each with <code>new_count</code> — listings that appeared since you last looked.'],
                 [html`<code>POST /api/v1/saved-searches</code>`, 'person', html`Save one: <code>{ q?, remote?, type?, location? }</code>. At least one filter. 201 with the saved search.`],
