@@ -36,6 +36,11 @@ const companies = require('../server/jobs/companies');
             for (const r of rows) assert.strictEqual(r.slug, companies.slugOf(r.company), r.company);
         });
 
+        await check('the company slug is indexed (0008): a page does not fold every listing', async () => {
+            const [row] = await s.db.many("SELECT to_regclass('work_listings_company_slug') AS idx");
+            assert.strictEqual(String(row.idx), 'work_listings_company_slug');
+        });
+
         await check('the index: every company by openings, one entry per slug, the most common spelling; found by name', async () => {
             const all = await companies.list(s);
             const acme = all.find((c) => c.slug === 'acme-widgets');
