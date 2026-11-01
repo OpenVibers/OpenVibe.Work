@@ -23,6 +23,7 @@ const { foldBlock, pickBlock, pickRules } = require('../render/short');
 const { send } = require('../render/layout');
 const listing = require('../render/listing');
 const store = require('../jobs/store');
+const jobTypes = require('../jobs/job-types');
 const companies = require('../jobs/companies');
 const sources = require('../jobs/sources');
 const applications = require('../applications');
@@ -84,7 +85,7 @@ ${link({ remote: 'true' }, 'Remote', filters.remote === 'true', facets.remote.tr
 ${link({ remote: 'false' }, 'On-site', filters.remote === 'false', facets.remote.false)}
 </ul>
 ${facets.type.length ? html`<ul class="facets" aria-label="Job type"><li class="facet-label">Type</li>
-${facets.type.map((t) => link({ type: t.type }, listing.jobTypeLabel(t.type), filters.type === t.type, t.count))}
+${facets.type.map((t) => link({ type: t.type }, t.label, filters.type === t.type, t.count))}
 </ul>` : ''}
 </div>`;
     };
@@ -231,7 +232,9 @@ ${raw(foldBlock({
 
     // ── Alerts: a search as an Atom feed, followed by OpenVibe.Watch ──
     const WATCH_NEW = 'https://openvibe.watch/watches/new';
-    const describe = (filters) => [filters.q ? `“${filters.q}”` : '', filters.remote === 'true' ? 'remote' : filters.remote === 'false' ? 'on-site' : '', filters.type ? filters.type : '', filters.location ? `in ${filters.location}` : ''].filter(Boolean).join(' ');
+    // A search is described in the same language as the facet: a canonical type is named by its label.
+    const typeText = (value) => (value ? (jobTypes.label(jobTypes.canonicalKey(value)) || value) : '');
+    const describe = (filters) => [filters.q ? `“${filters.q}”` : '', filters.remote === 'true' ? 'remote' : filters.remote === 'false' ? 'on-site' : '', typeText(filters.type), filters.location ? `in ${filters.location}` : ''].filter(Boolean).join(' ');
     const feedPath = (filters) => withFilters(filters, { cursor: null }, '/jobs.atom');
     /** Watch's new-watch form, filled in to follow one search's feed; the person reviews and creates it on Watch. */
     function alertHref(filters) {
@@ -309,6 +312,7 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
         }
         const src = sourceOf(row);
         const l = listing.meta(row);
+        const jobTypeText = listing.jobTypeLabel(l.job_type);
         const fetchedOn = row.fetched_at ? listing.dateWords(row.fetched_at) : 'a date we did not record';
         // A listing the board stopped showing is out of the search, but the old link still answers: it says the
         // listing is gone and when we last saw it, rather than pretending the row never existed.
@@ -335,7 +339,7 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
             jsonLd: [listing.jobPosting(row, { siteUrl: config.baseUrl })],
             body: html`<article class="job">
 <h1>${l.title}</h1>
-<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${l.job_type ? html` · <span class="job-type">${listing.jobTypeLabel(l.job_type)}</span>` : ''}</p>
+<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${jobTypeText ? html` · <span class="job-type">${jobTypeText}</span>` : ''}</p>
 ${listing.salaryLine(row, { note: true })}
 ${l.tags.length ? html`<p class="job-chips">${l.tags.map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>` : ''}
 <section class="job-excerpt-block" aria-labelledby="h-excerpt"><h2 id="h-excerpt">Excerpt</h2>
@@ -384,7 +388,7 @@ ${l.posted_at ? html`<dt>Posted</dt><dd>${time(l.posted_at)}</dd>` : ''}
     }
 
     const describeSaved = (row) => {
-        const bits = [row.query ? `“${row.query}”` : '', row.remote === 'true' ? 'remote' : row.remote === 'false' ? 'on-site' : '', row.type ? row.type : '', row.location ? `in ${row.location}` : ''].filter(Boolean);
+        const bits = [row.query ? `“${row.query}”` : '', row.remote === 'true' ? 'remote' : row.remote === 'false' ? 'on-site' : '', typeText(row.type), row.location ? `in ${row.location}` : ''].filter(Boolean);
         return bits.length ? bits.join(' ') : 'everything';
     };
 

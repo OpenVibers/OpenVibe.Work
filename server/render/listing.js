@@ -10,6 +10,7 @@
  */
 const { html, badge } = require('./html');
 const { stripHtml } = require('../jobs/text');
+const jobTypes = require('../jobs/job-types');
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -52,25 +53,13 @@ function salaryLine(row, { note = false } = {}) {
 }
 
 /**
- * A job type in the words people use: the boards write full_time and permanent, and a card does not show a
- * machine's word for a job type. The stored value stays as it is — only what we show changes.
+ * A job type in our own words. The boards write "unbefristeter arbeitsvertrag", "Cdi" and "full_time", and a card
+ * does not show a board's wording: the nine canonical types (server/jobs/job-types.js) say what the listing is
+ * ("Full time, Permanent"). A value that names no type — a seniority, a title, a company's name — is not shown at all:
+ * it is dropped, never shown raw.
  */
-const JOB_TYPE_LABELS = {
-    full_time: 'Full time',
-    part_time: 'Part time',
-    permanent: 'Permanent',
-    contract: 'Contract',
-    freelance: 'Freelance',
-    internship: 'Internship',
-    temporary: 'Temporary',
-};
 function jobTypeLabel(value) {
-    return String(value || '')
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .map((t) => JOB_TYPE_LABELS[t.toLowerCase()] || t.toLowerCase().replace(/_/g, ' ').replace(/^\S/, (c) => c.toUpperCase()))
-        .join(', ');
+    return jobTypes.labelText(value);
 }
 
 /** The source's name, linked to the original listing: the attribution its terms require, in one element. */
@@ -99,12 +88,13 @@ function initialTile(company) {
 /** One listing in a list, as a card: who, what and where at a glance, two lines of the excerpt, and the link back. */
 function listingItem(row, { source }) {
     const l = meta(row);
+    const typeText = jobTypeLabel(l.job_type);
     return html`<li class="job-item" id="${l.id}">
 ${initialTile(l.company)}
 <div class="job-main">
 <h3 class="job-title"><a href="/jobs/${l.id}">${l.title}</a></h3>
 <p class="job-meta"><span class="job-company">${l.company}</span><span class="job-location">${l.location || 'Location not given'}</span></p>
-<p class="job-chips">${l.remote ? html`<span class="chip chip-ok">Remote</span>` : ''}${l.job_type ? html`<span class="chip">${jobTypeLabel(l.job_type)}</span>` : ''}${l.tags.slice(0, 3).map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>
+<p class="job-chips">${l.remote ? html`<span class="chip chip-ok">Remote</span>` : ''}${typeText ? html`<span class="chip">${typeText}</span>` : ''}${l.tags.slice(0, 3).map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>
 ${salaryLine(row)}
 <p class="job-excerpt">${l.excerpt}</p>
 ${provenance(row, source)}
@@ -136,7 +126,7 @@ function jobPosting(row, { siteUrl }) {
         publisher: { '@type': 'Organization', name: 'OpenVibe.Work', url: siteUrl },
     };
     if (l.posted_at) node.datePosted = l.posted_at;
-    if (l.job_type) node.employmentType = l.job_type;
+    if (jobTypeLabel(l.job_type)) node.employmentType = jobTypeLabel(l.job_type);
     if (l.remote) node.jobLocationType = 'TELECOMMUTE';
     if (l.location) node.jobLocation = { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: l.location } };
     if (l.salary) node.baseSalary = { '@type': 'MonetaryAmount', description: l.salary };
