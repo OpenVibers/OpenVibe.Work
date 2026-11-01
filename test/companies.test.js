@@ -37,7 +37,7 @@ const companies = require('../server/jobs/companies');
         });
 
         await check('the company slug is indexed (0008): a page does not fold every listing', async () => {
-            const [row] = await s.db.many("SELECT to_regclass('public.work_listings_company_slug') AS idx");
+            const [row] = await s.db.many("SELECT to_regclass('work_listings_company_slug') AS idx");
             assert.strictEqual(String(row.idx), 'work_listings_company_slug');
         });
 
