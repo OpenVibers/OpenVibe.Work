@@ -19,7 +19,7 @@ const { asyncRouter } = require('./router');
 const { createDiscoveryRoutes, homeJsonLd } = require('./discovery');
 const { sameOrigin } = require('./principal');
 const { html, raw, table, notice, time } = require('../render/html');
-const { foldBlock, pickBlock, pickRules } = require('../render/short');
+const { foldBlock, pickBlock } = require('../render/short');
 const { send } = require('../render/layout');
 const listing = require('../render/listing');
 const store = require('../jobs/store');
@@ -198,7 +198,6 @@ ${listing.listingList(salaried, { sourceOf, empty: '' })}</section>`) });
             styles: [showcase.STYLESHEET], localStyles: ['css/home.css'],
             // The rule that shows the picked section of the browse block is written for the page, because there is one
             // per section (CSS cannot pair a radio with a pane by index).
-            inlineStyles: ['@supports selector(:has(*)){@media (max-width:640px){' + pickRules('browse', panes.map((p) => p.id)) + '}}'],
             body: html`${raw(hero)}
 ${stats.length ? html`<ul class="home-stats" aria-label="${SITE_NAME} in numbers">${stats.map((x) => html`<li><a href="${x.href}"><b>${n(x.value)}</b><span>${x.label}</span></a></li>`)}</ul>` : ''}
 <section class="sc-sec" id="search" aria-labelledby="h-search"><h2 id="h-search">Search the listings</h2>
