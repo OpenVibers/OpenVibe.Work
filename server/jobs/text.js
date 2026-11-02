@@ -45,7 +45,9 @@ function stripHtml(html) {
     if (/<\/?(p|div|span|br|ul|ol|li|a|b|i|em|strong|h[1-6]|table|tr|td|section|article|blockquote|pre|code|img|hr|script|style)\b[^>]*>/i.test(s)) s = stripOnce(s);
     // An unmatched '<' left by broken markup is not something a listing should show.
     s = s.replace(/<[^>]*$/g, ' ').replace(/[<>]/g, ' ');
-    return s.replace(/\s+/g, ' ').trim();
+    // A block boundary turned into a space can land before the sentence's own stop ("Operations . Deine Aufgaben" on
+    // the home, 2026-11-02): no space before a full stop or comma that ends a word (".NET" keeps its dot).
+    return s.replace(/\s+/g, ' ').replace(/ ([.,])(?=\s|$)/g, '$1').trim();
 }
 
 /** The excerpt: the first ~300 characters of the plain text, cut on a word, with a trailing ellipsis. */
