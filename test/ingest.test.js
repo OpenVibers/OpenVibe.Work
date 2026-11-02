@@ -88,6 +88,10 @@ const DAY = 86_400_000;
             const { stripHtml, excerpt, EXCERPT_CHARS } = require('../server/jobs/text');
             assert.strictEqual(stripHtml('<p>Hello&nbsp;<b>world</b> — it&#39;s 5 &amp; 6 &lt;ok&gt;</p>'), "Hello world — it's 5 & 6 ok");
             assert.strictEqual(stripHtml('<div>a</div><div>b</div>'), 'a b');
+            // A block boundary before the sentence's own stop leaves no space before it (2026-11-02, a German listing);
+            // a dot that starts a word stays (".NET").
+            assert.strictEqual(stripHtml('<p><strong>Application Operations</strong> . Deine Aufgaben</p>'), 'Application Operations. Deine Aufgaben');
+            assert.strictEqual(stripHtml('C# and .NET , SQL .'), 'C# and .NET, SQL.');
             assert.strictEqual(stripHtml('<style>p{color:red}</style><p>real</p>'), 'real');
             assert.strictEqual(stripHtml('<script>alert(1)</script>'), '');
             assert.strictEqual(stripHtml(null), '');
