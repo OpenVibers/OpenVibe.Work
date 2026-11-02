@@ -42,19 +42,11 @@ function foldBlock({ id, head, html, bare = false }) {
 function pickBlock({ key, label, head = '', panes, checked = '' }) {
     if (!panes.length) return '';
     const first = panes.find((p) => p.id === checked) ? checked : panes[0].id;
-    const chips = panes.map((p) => `<input type="radio" name="pick-${esc(key)}" id="pk-${esc(key)}-${esc(p.id)}" value="${esc(p.id)}"${p.id === first ? ' checked' : ''}><label for="pk-${esc(key)}-${esc(p.id)}">${esc(p.label)}</label>`).join('');
+    const chips = panes.map((p) => `<a class="pick-chip" href="#pp-${esc(key)}-${esc(p.id)}">${esc(p.label)}</a>`).join('');
     const body = panes.map((p) => `<div class="pick-pane" id="pp-${esc(key)}-${esc(p.id)}">${str(p.html)}</div>`).join('');
-    return `<div class="pick" id="pick-${esc(key)}"><div class="pick-bar"><div class="pick-head"><h2>${esc(head || label)}</h2></div><div class="pick-row" role="radiogroup" aria-label="${esc(label)}">${chips}</div></div><div class="pick-body">${body}</div></div>`;
+    return `<div class="pick" id="pick-${esc(key)}"><div class="pick-bar"><div class="pick-head"><h2>${esc(head || label)}</h2></div><nav class="pick-row" aria-label="${esc(label)}">${chips}</nav></div><div class="pick-body">${body}</div></div>`;
 }
 
-/** The rule that shows the picked block of a pick block: one per block, so the CSS is written for the page. */
-function pickRule(key, id) {
-    return `.pick:has(#pk-${key}-${id}:checked) #pp-${key}-${id}{display:block}`;
-}
 
-/** The rules for every block of a pick block, in the order they appear. */
-function pickRules(key, ids) {
-    return ids.map((id) => pickRule(key, id)).join('');
-}
 
-module.exports = { foldBlock, pickBlock, pickRule, pickRules };
+module.exports = { foldBlock, pickBlock };
