@@ -51,7 +51,11 @@ const DAY = 86_400_000;
             assert.deepStrictEqual(doc.indexability, { decision: 'index', reasons: [] });
             assert.strictEqual(doc.facets.source, 'remoteok');
             assert.strictEqual(doc.facets.remote, true);
-            assert.match(doc.body, /Skyward Cloud/);
+            assert.match(doc.title, /Skyward Cloud/);
+            // The snippet reads the summary and body together: the body leaves out the title, company, place and pay.
+            assert.ok(!doc.body.includes(devops.title) && !doc.body.includes('Skyward Cloud') && !doc.body.includes('$90,000'), `no repeat: ${doc.body.slice(0, 120)}`);
+            const { meta } = require('../server/render/listing');
+            assert.strictEqual(meta({ ...devops, location: 'Berlin, Berlin, Deutschland' }).location, 'Berlin, Deutschland', 'a repeated place part is said once');
             assert.match(doc.summary, /\$90,000–\$130,000 a year/);
             assert.deepStrictEqual(doc.provenance.map((p) => [p.service, p.type, p.label, p.url]),
                 [['work', 'board_listing', 'RemoteOK', devops.url]], 'the board and the original listing travel with it');

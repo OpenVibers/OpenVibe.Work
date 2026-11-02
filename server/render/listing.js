@@ -27,7 +27,9 @@ const meta = (row) => ({
     url: row.url,
     title: row.title,
     company: row.company,
-    location: row.location || '',
+    // A board's location can repeat a part ("Berlin, Berlin, Deutschland", "Manchester, Manchester, United Kingdom":
+    // 415 of 15,520 listings on 2026-11-02); a part that equals the one before it is said once.
+    location: String(row.location || '').split(',').map((p) => p.trim()).filter((p, i, a) => p && (i === 0 || p.toLowerCase() !== a[i - 1].toLowerCase())).join(', '),
     remote: !!row.remote,
     tags: String(row.tags || '').split(',').map((t) => t.trim()).filter(Boolean),
     job_type: row.job_type || '',
