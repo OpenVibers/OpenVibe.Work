@@ -213,8 +213,8 @@ const first = async (t, path) => (await t.get(path)).json();
 
         await check('llms.txt sends a crawler to the listings and the sources, and robots keeps /saved out', async () => {
             const llms = (await t.get('/llms.txt')).text;
-            assert.ok(llms.includes('(https://openvibe.work/jobs)'));
-            assert.ok(llms.includes('(https://openvibe.work/sources)'));
+            assert.ok(llms.includes('(https://openvibe.work/jobs.md)'));
+            assert.ok(llms.includes('(https://openvibe.work/sources.md)'));
             assert.ok(llms.includes('Arbeitnow, We Work Remotely, Hacker News: Who is hiring, Remotive, RemoteOK'), 'the sources are not named for a crawler');
             assert.ok(!llms.includes('/saved'), 'llms.txt names a private page');
             const robots = (await t.get('/robots.txt')).text;
