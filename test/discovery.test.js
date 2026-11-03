@@ -48,7 +48,10 @@ const PRIVATE = ['/auth/', '/api/'];
             assert.match(r.headers.get('content-type'), /^text\/plain/);
             assert.match(r.headers.get('cache-control') || '', /public, max-age=\d+/);
             assert.ok(r.text.startsWith('# OpenVibe.Work'), 'no title');
-            assert.ok(r.text.includes('(https://openvibe.work/updates)'), 'no updates link');
+            // AGT-5: own pages are linked at their Markdown twins; ## Optional is last.
+            assert.ok(r.text.includes('(https://openvibe.work/updates.md)'), 'no updates link');
+            assert.ok(r.text.includes('(https://openvibe.work/index.md)') && r.text.includes('(https://openvibe.work/api/v1/jobs)'), 'the home at its twin, the API as it is');
+            assert.ok(r.text.includes('\n## Optional\n') && r.text.lastIndexOf('\n## ') === r.text.indexOf('\n## Optional\n'), 'Optional is last');
             assert.ok(r.text.includes('(https://openvibe.services)'), 'no pointer to the developer platform');
             assert.ok(r.text.includes('https://openvibe.work/sitemap.xml'), 'sitemap not listed');
             assert.ok(r.text.includes('(https://openvibe.work/llms-full.txt)'), 'llms-full.txt not listed');

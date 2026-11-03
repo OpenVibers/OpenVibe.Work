@@ -76,25 +76,28 @@ function createDiscoveryRoutes(ctx) {
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsTxt({
             name: SITE_NAME,
             summary: DESCRIPTION,
+            // AGT-5: own pages link their Markdown twins (openvibe-shared 4.108.0); ## Optional is what an agent may skip.
+            markdown: true,
+            base: site,
             details: 'Every page is server-rendered and readable without JavaScript. Listings come from public job boards under their terms: the source is named and the original listing is linked; only a short excerpt is kept here.',
             sections: [
                 { title: 'Start here', links: [
                     { title: 'OpenVibe.Work', url: abs('/'), note: 'Find work on open job boards.' },
                     { title: 'Search the listings', url: abs('/jobs'), note: 'Filter by words, workplace, job type and location.' },
                     { title: 'Where the listings come from', url: abs('/sources'), note: `${sources.SOURCES.map((x) => x.name).join(', ')}, with the terms each is used under.` },
-                    { title: 'What shipped on OpenVibe.Work', url: abs('/updates') },
                 ] },
                 { title: 'For machines', links: [
                     { title: 'The API', url: abs('/docs'), note: 'GET /api/v1/jobs, /jobs/:id, /sources — public.' },
                     { title: 'The API, live', url: abs('/api/v1/jobs'), note: 'JSON listings with their source and the original URL.' },
-                    { title: 'Sitemap', url: abs('/sitemap.xml') },
-                    { title: 'Full text for language models', url: abs('/llms-full.txt') },
-                    { title: 'Release metadata (JSON)', url: abs('/release.json') },
                 ] },
-                { title: 'Elsewhere', links: [
-                    { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'accounts, apps and grants' },
-                    { title: 'OpenVibe.Services', url: 'https://openvibe.services', note: 'apps, keys and capability grants' },
-                ] },
+            ],
+            optional: [
+                { title: 'What shipped on OpenVibe.Work', url: abs('/updates') },
+                { title: 'Sitemap', url: abs('/sitemap.xml') },
+                { title: 'Full text for language models', url: abs('/llms-full.txt') },
+                { title: 'Release metadata (JSON)', url: abs('/release.json') },
+                { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'accounts, apps and grants' },
+                { title: 'OpenVibe.Services', url: 'https://openvibe.services', note: 'apps, keys and capability grants' },
             ],
         }));
     });
