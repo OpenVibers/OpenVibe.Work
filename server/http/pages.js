@@ -10,6 +10,9 @@
  * saving and deleting a saved search are plain POSTs. What is shown is read, never restated — the listings come from
  * the database, the sources and their terms from server/jobs/sources.js.
  */
+// A listing whose location already says it is remote ("Remote", "Remote, US") is not followed by "· Remote" again
+// (11-03 text check: "Remote · Remote" on a job page).
+const saysRemote = (location) => /\bremote\b/i.test(String(location || ''));
 const ovServe = require('openvibe-shared/serve');
 const frame = require('openvibe-shared/frame');
 const showcase = require('openvibe-shared/showcase');
@@ -266,7 +269,7 @@ ${raw(foldBlock({
         const entries = p.rows.map((row) => {
             const l = listing.meta(row);
             const at = isoOf(l.posted_at) || isoOf(row.fetched_at) || new Date().toISOString();
-            const where = [l.location, l.remote ? 'Remote' : '', listing.jobTypeLabel(l.job_type)].filter(Boolean).join(' · ');
+            const where = [l.location, l.remote && !saysRemote(l.location) ? 'Remote' : '', listing.jobTypeLabel(l.job_type)].filter(Boolean).join(' · ');
             return `<entry><id>${xml(`${config.baseUrl}/jobs/${row.id}`)}</id><title>${xml(`${l.title} at ${l.company}`)}</title>`
                 + `<link rel="alternate" type="text/html" href="${xml(`${config.baseUrl}/jobs/${row.id}`)}"/><updated>${at}</updated>`
                 + `<author><name>${xml(sourceOf(row).name)}</name></author>`
@@ -351,7 +354,7 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
             jsonLd: [listing.jobPosting(row, { siteUrl: config.baseUrl })],
             body: html`<article class="job">
 <h1>${l.title}</h1>
-<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote ? ' · Remote' : ''}${jobTypeText ? html` · <span class="job-type">${jobTypeText}</span>` : ''}</p>
+<p class="job-meta"><span class="job-company">${companies.slugOf(row.company) ? html`<a href="/companies/${companies.slugOf(row.company)}">${l.company}</a>` : l.company}</span> · <span class="job-location">${l.location || 'Location not given'}</span>${l.remote && !saysRemote(l.location) ? ' · Remote' : ''}${jobTypeText ? html` · <span class="job-type">${jobTypeText}</span>` : ''}</p>
 ${listing.salaryLine(row, { note: true })}
 ${l.tags.length ? html`<p class="job-chips">${l.tags.map((t) => html`<span class="chip chip-tag">${t}</span>`)}</p>` : ''}
 <section class="job-excerpt-block" aria-labelledby="h-excerpt"><h2 id="h-excerpt">Excerpt</h2>

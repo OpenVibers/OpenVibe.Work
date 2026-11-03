@@ -124,6 +124,7 @@ const first = async (t, path) => (await t.get(path)).json();
             assert.ok(html.includes('Platform Engineer'));
             assert.ok(html.includes('Meridian Rail'));
             assert.ok(html.includes('Remote (EU)'));
+            assert.ok(!html.includes('Remote (EU)</span> · Remote'), 'a location that says remote is not followed by "· Remote" again');
             assert.ok(html.includes('€70,000 – €85,000'), 'the salary the board gave');
             assert.ok(html.includes('<span class="chip chip-tag">kubernetes</span>'), 'the tags');
             assert.ok(html.includes('Read the full listing on Remotive'), 'no apply link');
