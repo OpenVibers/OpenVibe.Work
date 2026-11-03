@@ -4,6 +4,7 @@
 // companies and one company, the sources, the API reference and the update log), the JSON API under /api/v1 and
 // its /docs reference, llms.txt and the sitemap. Reading the listings is public; a saved search is a person's, so
 // the API also takes a Network sign-in. No OpenAPI document or MCP endpoint is published here, so none is named.
+// 11-03 (SEO-3): this site serves /openapi.json now (the contracts' document for it), so it is named below.
 module.exports = {
     id: 'work',
     name: 'OpenVibe.Work',
@@ -12,6 +13,7 @@ module.exports = {
     site: 'openvibe.work',
     api: '/api/v1',
     docs: '/docs',
+    openapi: '/openapi.json',
     policy: {
         auth: ['none', 'Network OIDC'],
     },
