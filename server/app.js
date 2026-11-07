@@ -19,7 +19,6 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const contracts = require('openvibe-contracts');
-const CONFIG_CAPABILITY = 'work.config.manage';
 const cache = require('openvibe-shared/cache-policy');
 
 const configLib = require('./config');
@@ -216,8 +215,8 @@ async function createApp(opts = {}) {
             });
             if (!r.ok) return res.status(r.code === 'token.unavailable' ? 503 : 401).json({ code: r.code, error: r.reason || 'the token does not verify' });
             const contracts = require('openvibe-contracts');
-            const decision = contracts.capabilities.check(r.claims, CONFIG_CAPABILITY);
-            const granted = decision.allowed || contracts.capabilities.grants(r.claims.cap, CONFIG_CAPABILITY);
+            const decision = contracts.capabilities.check(r.claims, 'work.config.manage');
+            const granted = decision.allowed || contracts.capabilities.grants(r.claims.cap, 'work.config.manage');
             if (!granted) return res.status(403).json({ code: 'capability.denied', error: 'work.config.manage is not granted' });
             req.principal = { sub: r.claims.sub, cap: r.claims.cap, jti: r.claims.jti };
             return next();
