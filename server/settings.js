@@ -30,7 +30,7 @@ const SCHEMA = Object.freeze({
             type: 'string', title: 'USAJOBS API key', 'x-group': GROUP,
             description: 'The API key from your USAJOBS developer account. It lets Work read federal jobs from USAJOBS directly; without it those jobs are missing from search and alerts.',
             'x-owner-input': {
-                group: GROUP,
+                group: 'data-sources',
                 unlocks: 'Federal job listings from USAJOBS appear in Work\'s search, company pages and job alerts.',
                 get_it_at: 'https://developer.usajobs.gov/apirequest/',
                 get_it_how: 'Sign in with your USAJOBS account, request an API key for an app, and paste the Authorization Key it shows.',
@@ -42,7 +42,7 @@ const SCHEMA = Object.freeze({
             type: 'string', format: 'email', title: 'USAJOBS account email', 'x-group': GROUP,
             description: 'The email address on the USAJOBS developer account. USAJOBS requires it in the User-Agent header of every request, not just to sign in.',
             'x-owner-input': {
-                group: GROUP,
+                group: 'data-sources',
                 unlocks: 'USAJOBS accepts Work\'s requests: the email must match the account the API key belongs to.',
                 get_it_at: 'https://developer.usajobs.gov/apirequest/',
                 get_it_how: 'Use the email you signed in to developer.usajobs.gov with.',
