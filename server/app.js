@@ -19,6 +19,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const contracts = require('openvibe-contracts');
+const CONFIG_CAPABILITY = 'work.config.manage';
 const cache = require('openvibe-shared/cache-policy');
 
 const configLib = require('./config');
@@ -26,6 +27,8 @@ const { openStore } = require('./db');
 const { createKeyStore } = require('./auth/keys');
 const { createSso } = require('./auth/sso');
 const { createPrincipal } = require('./http/principal');
+const settingsLib = require('./settings');
+const { verifyServiceToken } = require('openvibe-sdk/auth');
 const { createApi } = require('./http/api');
 const { createPageRoutes } = require('./http/pages');
 const { createServiceReadiness } = require('./observability');
@@ -60,7 +63,20 @@ async function createApp(opts = {}) {
     const keys = createKeyStore({ config, fetchImpl, log });
     const sso = createSso({ config, keys, fetchImpl, now: s.now, log });
     const principal = createPrincipal({ config, keys });
-    const ctx = { config, s, keys, sso, principal, log };
+    // D11 owner settings (work.data_sources): created before the app mounts /internal/config. A failure leaves
+    // Work serving (the USAJOBS pair falls back to the environment) and says why in the log.
+    let settings = null;
+    if (opts.settings) settings = opts.settings;
+    else {
+        try {
+            const made = settingsLib.createSettings({ db: s.db, env: opts.env || process.env, log });
+            await made.ready;
+            settings = settingsLib.activate(made);
+        } catch (err) {
+            log.warn('[OpenVibe.Work] owner settings unavailable, the data-source keys fall back to the environment:', err && err.message);
+        }
+    }
+    const ctx = { config, s, keys, sso, principal, settings, log };
 
     const app = express();
     // GET /openapi.json (SEO-3): this service's public API as OpenAPI 3.1, generated from the contracts
@@ -183,6 +199,32 @@ async function createApp(opts = {}) {
     // reads the raw body itself, so it is mounted before any body parser (there is none above it), and nginx answers
     // 404 for /internal/ so this is reachable only on 127.0.0.1.
     app.use('/internal/events', accountData.consumer({ secrets: config.events.secrets, send: accountSend, log }));
+
+    // ── D11 owner settings (openvibe-shared/config): Network's admin proxy, acting for the owner, reads and
+    // writes work.data_sources (the USAJOBS API key and account email). Loopback only, guarded by
+    // work.config.manage; a secret change needs X-OV-Fresh: 1, and the test route makes one search read.
+    if (settings) {
+        const configGuard = async (req, res, next) => {
+            if (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.headers['cf-connecting-ip']) {
+                return res.status(404).json({ code: 'work.not_found', error: 'no such route' });
+            }
+            const header = String(req.headers.authorization || '');
+            if (!header.startsWith('Bearer ')) return res.status(401).json({ code: 'token.missing', error: 'a service token is required' });
+            const r = await verifyServiceToken(header.slice(7).trim(), {
+                jwks: `${config.networkInternalUrl}/api/.well-known/jwks`, issuer: config.networkIssuer, audience: config.audience,
+                contracts: require('openvibe-contracts'),
+            });
+            if (!r.ok) return res.status(r.code === 'token.unavailable' ? 503 : 401).json({ code: r.code, error: r.reason || 'the token does not verify' });
+            const contracts = require('openvibe-contracts');
+            const decision = contracts.capabilities.check(r.claims, CONFIG_CAPABILITY);
+            const granted = decision.allowed || contracts.capabilities.grants(r.claims.cap, CONFIG_CAPABILITY);
+            if (!granted) return res.status(403).json({ code: 'capability.denied', error: 'work.config.manage is not granted' });
+            req.principal = { sub: r.claims.sub, cap: r.claims.cap, jti: r.claims.jti };
+            return next();
+        };
+        app.use('/internal/config', express.json({ limit: '64kb' }));
+        settings.mount(app, { guard: configGuard, log });
+    }
 
     // ── Static assets (content-hashed ?v= → immutable) ──────
     app.use('/shared', require('openvibe-shared/serve').handler());
