@@ -71,7 +71,7 @@ async function makeApplication(t, subject) {
         try {
             const missing = await uncovered(d.db, {
                 tables: TABLES,
-                               exempt: {"account_data_events":"the ledger of requests itself: which export and deletion work applied","work_index_revisions":"owner is the search-index document's owner (type/id), not a person; the row holds a revision and hash"},
+                               exempt: {"config_snapshots":"D11 owner settings: created_by/activated_by is the acting administrator (usr_...) for the config audit trail; the values are network configuration, not the person's account data, and are kept for rollback/history","account_data_events":"the ledger of requests itself: which export and deletion work applied","work_index_revisions":"owner is the search-index document's owner (type/id), not a person; the row holds a revision and hash"},
             });
             assert.deepStrictEqual(missing, [], `a table with a person column is neither covered nor exempted: ${missing.join(', ')}`);
         } finally { await d.close(); }
