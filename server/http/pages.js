@@ -139,7 +139,8 @@ ${facets.type.map((t) => link({ type: t.type }, t.label, filters.type === t.type
         const total = sum.total;
         const base = String(config.baseUrl).replace(/\/+$/, '');
         const hero = showcase.hero({
-            eyebrow: `${SITE_NAME} · ${TAGLINE}`,
+            // The title says what this is; the eyebrow is the site's name, not the title again.
+            eyebrow: SITE_NAME,
             title: 'Find work.',
             // The hero's picture is this site's own (2026-11-01): it drew the generic aura, the same on six homes.
             // What a job seeker has here, around the listings.
@@ -155,7 +156,8 @@ ${facets.type.map((t) => link({ type: t.type }, t.label, filters.type === t.type
                 ],
             },
             accent: 'Every listing shows where it came from.',
-            lede: `${SITE_NAME} gathers job listings from public job boards, keeps the board's own link on every one, and lets you search them. No paywall, no account needed to look. Sign in to keep searches, get alerts, track the jobs you apply to, and have your OpenVibe.Actor agent help prepare each application.`,
+            // Two lines on a phone: what it is and that it is free. What signing in adds is said where it happens.
+            lede: 'Listings from public job boards, each with its own link. No paywall, and no account needed to look.',
             // Two, so they sit side by side on a phone; where the listings come from is a section below.
             actions: [{ label: 'Search the listings', href: '#search', primary: true }, { label: 'Remote jobs', href: '/jobs?remote=true' }],
             note: 'Open source (AGPL-3.0). Listings are shown with the source named and a link to the original — read the full listing there.',
