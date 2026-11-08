@@ -15,6 +15,34 @@ const jobTypes = require('./job-types');
 const PAGE_SIZE = 30;
 const MAX_PAGE = 100;
 
+// A search page runs three scans of work_listings (21k rows / 23 ms each on 2026-11-08): the exact match count,
+// the remote facet and the job-type facet. Readers repeat the same filters (a crawler walking the catalogue), so
+// the two answers are kept for 30 s in production. Every call counts elsewhere, so a test reads its own writes.
+const COUNTS_MS = Math.max(0, Number(process.env.WORK_COUNTS_CACHE_MS || (process.env.NODE_ENV === 'production' ? 30_000 : 0)) || 0);
+const keptCounts = new Map();
+/** One read per key per window, shared by callers at the same moment; a failed read is not kept. */
+function kept(key, read, keepMs = COUNTS_MS, now = Date.now) {
+    if (!(keepMs > 0)) return Promise.resolve().then(read);
+    const t = now();
+    const hit = keptCounts.get(key);
+    if (hit && (hit.pending || t - hit.at < keepMs)) return hit.pending || Promise.resolve(hit.value);
+    const pending = Promise.resolve().then(read);
+    keptCounts.set(key, { at: t, pending });
+    if (keptCounts.size > 500) {
+        for (const [k, v] of keptCounts) if (!v.pending) keptCounts.delete(k);
+        if (keptCounts.size > 500) keptCounts.clear();
+    }
+    return pending.then((value) => {
+        const hold = keptCounts.get(key);
+        if (hold && hold.pending === pending) keptCounts.set(key, { at: t, value });
+        return value;
+    }, (err) => {
+        const hold = keptCounts.get(key);
+        if (hold && hold.pending === pending) keptCounts.delete(key);
+        throw err;
+    });
+}
+
 // ── ids ─────────────────────────────────────────────────────
 // A listing's id is derived from (source, source_id), so the same listing keeps the same URL on this site however
 // often the board is re-read, and two sources can never collide. 26 base32 characters, the shape of a ULID.
@@ -131,7 +159,8 @@ async function search(s, filters, { limit = PAGE_SIZE, cursor = null } = {}) {
     const where = ['expired = false', sql];
     const scope = where.join(' AND ');
     // How many listings the reader's filters actually match, counted exactly rather than inferred from the page.
-    const matches = Number(await s.db.value(`SELECT count(*) AS n FROM work_listings WHERE ${scope}`, args));
+    const key = `${f.q}|${f.remote}|${f.type}|${f.location}`;
+    const matches = Number(await kept(`matches|${key}`, () => s.db.value(`SELECT count(*) AS n FROM work_listings WHERE ${scope}`, args)));
     const at = cursor && cursor.sort_at && cursor.id ? cursor : null;
     if (at) {
         args.push(at.sort_at, at.id);
@@ -144,7 +173,8 @@ async function search(s, filters, { limit = PAGE_SIZE, cursor = null } = {}) {
     return {
         rows: pageRows,
         next: rows.length > n && last ? { sort_at: last.sort_at, id: last.id } : null,
-        facets: { matches, ...(await facets(s, f)) },
+        // The facets exclude the type and remote filters, so their key is only the text and place in force.
+        facets: { matches, ...(await kept(`facets|${f.q}|${f.location}`, () => facets(s, f))) },
     };
 }
 
@@ -408,5 +438,5 @@ function decodeCursor(v) {
 module.exports = {
     search, facets, getListing, disclosureRate, countsBySource, listRecent, listSalaried, homeSummary, recentIds, upsertListing, upsertListings, expireListing, liveCount,
     beginFetch, finishFetch, sourceFetches, expire, listSaved, createSaved, getSaved, deleteSaved, newCount, touchSaved, toWire, toSavedWire, filtersOf,
-    idOf, encodeCursor, decodeCursor, PAGE_SIZE, MAX_PAGE, MAX_SAVED, LISTING_ID,
+    idOf, encodeCursor, decodeCursor, PAGE_SIZE, MAX_PAGE, MAX_SAVED, LISTING_ID, COUNTS_MS, kept,
 };
