@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use OpenVibe.Work in research or a product, cite it as below."
+title: openvibe-work
+type: software
+authors:
+  - name: OpenVibe
+    alias: OpenVibers
+    website: https://openvibe.network
+repository-code: https://github.com/OpenVibers/OpenVibe.Work
+url: https://openvibe.work
+license: AGPL-3.0-only
+abstract: "Job search with an AI agent on your side, listings linked to where you apply, at openvibe.work."
+keywords:
+  - openvibe
+  - ai-agents
+  - careers
+  - hiring
+  - job-search

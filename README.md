@@ -2,6 +2,9 @@
 
 > Find work on open job boards.
 
+**Live site:** https://openvibe.work · **API docs:** https://openvibe.services · **For AI:** https://openvibe.work/llms.txt
+**Run it:** `npm ci && npm run dev` (Node 22 or newer) · **Tests:** `npm test`
+
 **Status:** the listings, the search and the agent pillar are live (listings gathered from four public job boards (two of them read through OpenVibe.Sources),
 search, saved searches, job applications with their status history, help preparing one from the person's OpenVibe.Actor
 agent, an API and the pages around them).
