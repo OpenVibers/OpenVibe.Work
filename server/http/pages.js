@@ -133,6 +133,28 @@ ${facets.type.map((t) => link({ type: t.type }, t.label, filters.type === t.type
     const FAQ = ((products.get('openvibe.work') || {}).faq || []);
     const n = (v) => Number(v || 0).toLocaleString('en-US');
     const sentence = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+    /**
+     * The home's picture: the newest listing as a card that leads with its source ("From Remotive"), the way every
+     * listing on the site does, with the next two showing behind it. Every word in it is a real row; the caption says
+     * when it was read. The source tag is ringed once when the page opens (CSS, public/css/home.css .wk-scene), and
+     * is simply there under reduced motion.
+     */
+    function sourceScene(rows, sourceOf) {
+        const tile = (row, cls) => {
+            const l = listing.meta(row);
+            const src = sourceOf(row) || {};
+            return html`<a class="wk-scene-card ${cls}" href="/jobs/${l.id}"${cls === 'is-front' ? '' : raw(' tabindex="-1" aria-hidden="true"')}>
+<span class="wk-scene-src"><i aria-hidden="true"></i>From ${src.name || 'a public board'}</span>
+<b>${l.title}</b>
+<span class="wk-scene-meta">${l.company}${l.location ? html` · ${l.location}` : ''}</span>
+${cls === 'is-front' ? html`<span class="wk-scene-go">Read it, with the link to the original</span>` : ''}</a>`;
+        };
+        const [first, ...rest] = rows.slice(0, 3);
+        return html`<figure class="wk-scene" aria-label="The newest remote listing, with the board it came from">
+<div class="wk-scene-stack">${rest.reverse().map((row, i, all) => tile(row, all.length - i === 2 ? 'is-third' : 'is-second'))}${tile(first, 'is-front')}</div>
+<figcaption>The newest remote listing right now. Every listing names its board.</figcaption></figure>`;
+    }
+
     r.get('/', async (req, res) => {
         const [latest, counts, sum, salaried] = await Promise.all([store.listRecent(s, 6, { remote: true }), store.countsBySource(s), store.homeSummary(s), store.listSalaried(s, 4)]);
         const fetches = await store.sourceFetches(s);
@@ -142,19 +164,10 @@ ${facets.type.map((t) => link({ type: t.type }, t.label, filters.type === t.type
             // The title says what this is; the eyebrow is the site's name, not the title again.
             eyebrow: SITE_NAME,
             title: 'Find work.',
-            // The hero's picture is this site's own (2026-11-01): it drew the generic aura, the same on six homes.
-            // What a job seeker has here, around the listings.
-            orbit: {
-                label: 'What you can do here',
-                center: { title: 'Listings', sub: 'from public boards' },
-                inner: [
-                    { icon: 'ov:search', label: 'Search', href: '#search' },
-                    { icon: 'ov:map', label: 'Remote', href: '/jobs?remote=true' },
-                    { icon: 'ov:bell', label: 'Alerts', href: '#search' },
-                    { icon: 'ov:actor', label: 'Your agent', href: 'https://openvibe.actor/' },
-                    { icon: 'ov:link', label: 'Sources', href: '/sources' },
-                ],
-            },
+            // The hero's picture is the thing itself (2026-11-10; the owner: no more "generic circled" homes): the
+            // newest listing, as a card whose first line is the board it came from, on a small stack of the next two.
+            // Real rows only: with no listings yet there is no picture.
+            ...(latest.length ? { aside: { html: String(sourceScene(latest, sourceOf)) } } : {}),
             accent: 'Every listing shows where it came from.',
             // Two lines on a phone: what it is and that it is free. What signing in adds is said where it happens.
             lede: 'Listings from public job boards, each with its own link. No paywall, and no account needed to look.',

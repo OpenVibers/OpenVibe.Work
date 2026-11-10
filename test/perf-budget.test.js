@@ -24,7 +24,7 @@ const BUDGETS = {
     jsBrotliKB: 89.5, // 89.5: measured 87.5 with openvibe-shared 4.163.0, plus room for 4.162.0–4.163.0, 2026-11-09
     cssFiles: 3,   // 3 (app.css, the cached /shared/showcase.css and css/home.css, the curated home's counts, fields, cities, companies and questions, 2026-10-22)
     cssRawKB: 53.7, // 53.7: measured 48.7 with openvibe-shared 4.161.0, plus room for 4.162.0–4.163.0, 2026-11-09
-    cssBrotliKB: 11,   // 10.4 with 2026-11-01: phone table cards (+1.3 KB raw) (2026-11-01); raised from 10 on 2026-10-31, with the measured page: 45.6 KB raw / 10.1 KB brotli (the listings' salary line, the gone line and the fetch date under the link out); 10.0 with the home's pick block and folds (the sections below the search are picked one at a time on a phone, 2026-10-30); 9.1 with openvibe-shared 4.48.0 (the site switcher on the mark, the menu's Start tab and quick tools; Kit's touch hit areas and the phone navbar fix, 4.44-4.47.3); 8.6 the home's phone rows, limits and fold (2026-10-29); 6.6–6.7 with Shared 4.13.0; raised from 8 for openvibe-shared v4.39.0 (+1.5 KB raw of kit/room/showcase CSS); measured 8.3
+    cssBrotliKB: 11.4, // 11.3 with the home's picture (the newest listing as a stack of cards), 2026-11-10; before: 10.4 with 2026-11-01: phone table cards (+1.3 KB raw) (2026-11-01); raised from 10 on 2026-10-31, with the measured page: 45.6 KB raw / 10.1
     externalFiles: 0,   // 0
 };
 
