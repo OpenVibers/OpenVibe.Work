@@ -21,6 +21,7 @@
  */
 const ingest = require('openvibe-publishing/ingest');
 const sources = require('../jobs/sources');
+const { parseHiringLine, TITLE_RULE } = require('../jobs/hiring-line');
 const store = require('../jobs/store');
 
 const SOURCE_ID = 'arbeitnow';
@@ -103,41 +104,40 @@ function rawOfWwr(item) {
 
 /**
  * A Sources item → the row a Hacker News "Who is hiring" comment makes. The resolver's title is the comment's first
- * line, which posters usually write as "Company | Role | Place" or "Company is hiring a role": the company comes from
- * that, and a comment that does not name one is held by the same thin-listing gate as any other board. The excerpt is
- * Sources' plain-text excerpt, already stripped of email addresses and phone numbers; the full comment is its link.
+ * line, which posters usually write as "Company | Role | Place | Terms | Pay" (or "Company is hiring a role"). Work
+ * splits that line into the company, the role(s), the place, the terms and the pay (server/jobs/hiring-line.js), and
+ * keeps the line at the front of the description so nothing the poster wrote is lost. A comment that names no company
+ * is held by the same thin-listing gate as any other board. The excerpt is Sources' plain-text excerpt, already
+ * stripped of email addresses and phone numbers; the full comment is its link.
  */
 function rawOfHn(item) {
     const f = (item && item.fields) || {};
     const first = String((item && item.title) || '').replace(/\s+/g, ' ').trim();
-    const parts = first.split(/\s*\|\s*/);
-    let company = '';
-    let title = first;
-    if (parts.length >= 2 && parts[0].trim()) {
-        company = parts[0].trim();
-        title = parts.slice(1).join(' | ').trim() || first;
-    } else {
-        const m = /^(.+?)\s+(?:is|are)\s+hiring\b/i.exec(first);
-        if (m && m[1].trim()) {
-            company = m[1].trim();
-            title = first.slice(m[0].length).replace(/^[\s:,-]+/, '').trim() || first;
-        }
-    }
+    const parsed = parseHiringLine(first);
     const summary = String((item && item.summary) || '');
+    // The original line is the listing's description too: Sources starts its excerpt with it, but an excerpt that was
+    // cut before the first newline, or a board that sends the fields apart, must not lose it.
+    const plain = excerptLines(summary);
+    const description = plain.startsWith(first) ? summary : `${first}\n${summary}`;
     return {
         source_id: item.identity,
         url: item.canonical_url,
-        title,
-        company,
-        location: null,                             // the comment rarely states one; the title may, in its own words
-        remote: /\bremote\b/i.test(`${first} ${summary}`),
-        tags: list(f.tags),
-        job_type: null,
-        salary: null,
+        title: parsed.title,
+        company: parsed.company,
+        location: parsed.location,
+        remote: parsed.remote,
+        tags: list([...list(f.tags), ...parsed.tags]),
+        job_type: parsed.job_type,
+        salary: parsed.salary,
         posted_at: item.published_at || null,
-        description_html: summary,
+        description_html: description,
+        title_rule: TITLE_RULE,
     };
 }
+
+/** The start of a plain-text summary, with whitespace collapsed, for comparing it with the comment's first line. */
+const excerptLines = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+
 
 /**
  * The boards Work reads through OpenVibe.Sources: the Sources key an item arrives under, the id the listing is
@@ -239,4 +239,4 @@ function createFromSources({ config, s, fetchImpl = globalThis.fetch, log = cons
     return { enabled: Boolean(client), pull, start, stop, apply, SOURCE_ID, sourceIds: active.map(([, e]) => e.source_id) };
 }
 
-module.exports = { createFromSources, rawOf, rawOfWwr, rawOfHn, SOURCES, SOURCE_ID, SOURCE_KEY };
+module.exports = { createFromSources, rawOf, rawOfWwr, rawOfHn, SOURCES, SOURCE_ID, SOURCE_KEY, TITLE_RULE };

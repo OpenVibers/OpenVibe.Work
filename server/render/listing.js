@@ -22,6 +22,21 @@ function dateWords(iso) {
     return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/**
+ * The listing's title with its company: "Role at Company". A title the ingest already wrote that way (a one-line
+ * board post split by server/jobs/hiring-line.js) is not made to say the company twice, and a title that is only the
+ * company is not followed by it either.
+ */
+function fullTitle(l) {
+    const title = String((l && l.title) || '').trim();
+    const company = String((l && l.company) || '').trim();
+    if (!title) return company;
+    if (!company) return title;
+    if (title.toLowerCase() === company.toLowerCase()) return title;
+    if (title.toLowerCase().endsWith(` at ${company.toLowerCase()}`)) return title;
+    return `${title} at ${company}`;
+}
+
 const meta = (row) => ({
     id: row.id,
     url: row.url,
@@ -138,4 +153,5 @@ function jobPosting(row, { siteUrl }) {
 /** The excerpt as plain text, for the meta description and the API. */
 const plainExcerpt = (row) => stripHtml(row.excerpt || '');
 
-module.exports = { listingItem, listingList, sourceLink, provenance, jobPosting, dateWords, plainExcerpt, meta, salaryLine, jobTypeLabel };
+module.exports = {
+    fullTitle, listingItem, listingList, sourceLink, provenance, jobPosting, dateWords, plainExcerpt, meta, salaryLine, jobTypeLabel };

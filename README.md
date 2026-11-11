@@ -75,7 +75,9 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
 - **Event delivery** — OpenVibe.Events: Work receives `network.account.export_requested` and `network.account.deleted`
   and creates its two subscriptions at boot; it does not own the topics or the delivery.
 - **The listings themselves** — the boards (Arbeitnow, Remotive, RemoteOK and Hacker News "Who is hiring"): Work keeps a short excerpt and a link back,
-  never the full description, and reads each board only on the terms it publishes.
+  never the full description, and reads each board only on the terms it publishes. A board that writes a listing as
+  one pipe-separated line (Hacker News) has that line split into company, role(s), place, terms and pay
+  (`server/jobs/hiring-line.js`); the line itself stays at the front of the excerpt.
 
 ## Depends on
 
