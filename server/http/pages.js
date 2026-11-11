@@ -285,7 +285,7 @@ ${raw(foldBlock({
             const l = listing.meta(row);
             const at = isoOf(l.posted_at) || isoOf(row.fetched_at) || new Date().toISOString();
             const where = [l.location, l.remote && !saysRemote(l.location) ? 'Remote' : '', listing.jobTypeLabel(l.job_type)].filter(Boolean).join(' · ');
-            return `<entry><id>${xml(`${config.baseUrl}/jobs/${row.id}`)}</id><title>${xml(`${l.title} at ${l.company}`)}</title>`
+            return `<entry><id>${xml(`${config.baseUrl}/jobs/${row.id}`)}</id><title>${xml(listing.fullTitle(l))}</title>`
                 + `<link rel="alternate" type="text/html" href="${xml(`${config.baseUrl}/jobs/${row.id}`)}"/><updated>${at}</updated>`
                 + `<author><name>${xml(sourceOf(row).name)}</name></author>`
                 + `<summary>${xml([where, listing.plainExcerpt(row).slice(0, 300)].filter(Boolean).join(' — '))}</summary></entry>`;
@@ -355,15 +355,15 @@ ${nextUrl ? html`<a class="sc-btn sc-primary" href="${nextUrl}">Older listings</
                 styles: [showcase.STYLESHEET],
                 body: html`<h1>No longer on the board</h1>
 <p class="job-gone"><span class="badge bad">Gone</span> This listing is no longer on the board.${lastSeen ? html` Last seen on ${src.name} on ${lastSeen}.` : ' We did not record the day we last saw it.'}</p>
-<p>${l.title} at ${l.company} is not in our listings any more, so it is not in the search either. The board's own listing is still <a href="${l.url}" rel="nofollow noopener external" target="_blank">here</a>, but the board may have taken it down.</p>
+<p>${listing.fullTitle(l)} is not in our listings any more, so it is not in the search either. The board's own listing is still <a href="${l.url}" rel="nofollow noopener external" target="_blank">here</a>, but the board may have taken it down.</p>
 <p><a class="sc-btn" href="/jobs">Search the listings</a></p>`,
             }, 404);
         }
         const tracked = signedIn(req) ? await applications.applicationByListing(s, subjectOf(req), row.id) : null;
         page(req, res, {
             index: true, cache: PUBLIC_CACHE,
-            title: `${l.title} at ${l.company}`,
-            description: listing.plainExcerpt(row).slice(0, 300) || `${l.title} at ${l.company}, from ${src.name}.`,
+            title: listing.fullTitle(l),
+            description: listing.plainExcerpt(row).slice(0, 300) || `${listing.fullTitle(l)}, from ${src.name}.`,
             crumbs: [{ label: 'Jobs', href: '/jobs' }, { label: l.title }],
             styles: [showcase.STYLESHEET, 'kit.css'],
             jsonLd: [listing.jobPosting(row, { siteUrl: config.baseUrl })],
@@ -461,7 +461,7 @@ ${!q && all.length > shown.length ? html`<p class="muted small">The ${n(shown.le
             title: `Jobs at ${c.company}`,
             description: `${n(c.count)} open listing${c.count === 1 ? '' : 's'} at ${c.company}${c.remote ? `, ${n(c.remote)} remote` : ''}${c.places.length ? `, in ${c.places.slice(0, 3).map((p) => p.place).join(', ')}` : ''}, from the boards OpenVibe.Work reads, each linking back to the original listing.`.slice(0, 300),
             crumbs: [{ label: 'Companies', href: '/companies' }, { label: c.company }], styles: [showcase.STYLESHEET],
-            jsonLd: [seo.jsonLd.itemList(`Jobs at ${c.company}`, c.rows.slice(0, 50).map((row) => ({ name: `${row.title} at ${row.company}`, url: `${base}/jobs/${row.id}` })), { url: `${base}/companies/${c.slug}` })],
+            jsonLd: [seo.jsonLd.itemList(`Jobs at ${c.company}`, c.rows.slice(0, 50).map((row) => ({ name: listing.fullTitle(row), url: `${base}/jobs/${row.id}` })), { url: `${base}/companies/${c.slug}` })],
             body: html`<h1>Jobs at ${c.company}</h1>
 <p class="lede">${n(c.count)} open listing${c.count === 1 ? '' : 's'}${c.remote ? html`, ${n(c.remote)} of them remote` : ''}${c.salaried ? html`, ${n(c.salaried)} stating the pay` : ''}. Listed on ${boards.length > 1 ? html`${boards.slice(0, -1).map((b, i) => html`${i ? ', ' : ''}${b}`)} and ${boards[boards.length - 1]}` : boards[0]}.</p>
 ${c.places.length ? html`<p class="small">Where: ${c.places.map((p, i) => html`${i ? ', ' : ''}<a href="/jobs?${new URLSearchParams({ q: c.company, location: p.place })}">${p.place}</a> (${n(p.count)})`)}</p>` : ''}
@@ -556,7 +556,7 @@ ${notice('Give the search at least one thing to look for — words, a location, 
 <p class="muted small">Or press “Track this job” on any <a href="/jobs">listing</a>.</p></section>`;
 
     const renderApplication = (req, res, a, { events = [], problem = null, assisted = false } = {}) => page(req, res, {
-        title: `${a.title} at ${a.company}`, styles: [showcase.STYLESHEET], localStyles: APP_STYLES,
+        title: listing.fullTitle(a), styles: [showcase.STYLESHEET], localStyles: APP_STYLES,
         crumbs: [{ label: 'Applications', href: '/applications' }, { label: a.title }],
         body: html`<div class="app-head"><h1>${a.title}</h1>${statusBadge(a.status)}</div>
 <p class="app-company">${a.company}${a.url ? html` · <a href="${a.url}" rel="nofollow noopener external" target="_blank">the original listing</a>` : ''}${a.listing_id ? html` · <a href="/jobs/${a.listing_id}">this listing on OpenVibe.Work</a>` : ''}</p>

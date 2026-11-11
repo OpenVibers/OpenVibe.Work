@@ -43,16 +43,21 @@ const hn = (identity, title, summary, over = {}) => ({
             push(hn('hn-203', 'Beta & Co is hiring a product designer', 'Beta & Co is hiring a product designer. Contact [email].'));
             push(hn('hn-205', 'No company here', 'A comment with no company in its first line.'));
             push(hn('hn-206', 'Z | Q', 'A board test post with one-letter fields.'));
+            push(hn('hn-207', 'Mechanical Engineer, Electrical Engineer, Robotic Controls Engineer | New York, NY | ONSITE | Full-time | $220K-$300K at Nirvana Robotics',
+                'Three roles on one line. Email [email].'));
             const out = await from.pull();
-            assert.deepStrictEqual([out.applied, out.hold, out.removed], [2, 2, 0]);
+            assert.deepStrictEqual([out.applied, out.hold, out.removed], [3, 2, 0]);
 
             const acme = await s.db.maybe('SELECT * FROM work_listings WHERE id = $1', [store.idOf('hn-whoishiring', 'hn-201')]);
             assert.deepStrictEqual([acme.source, acme.title, acme.company, acme.remote, acme.url],
-                ['hn-whoishiring', 'Senior Backend Engineer | Remote (US)', 'Acme Corp', true, 'https://news.ycombinator.com/item?id=201']);
+                ['hn-whoishiring', 'Senior Backend Engineer at Acme Corp', 'Acme Corp', true, 'https://news.ycombinator.com/item?id=201']);
+            assert.strictEqual(acme.location, 'Remote (US)', 'the place is its own field, not part of the title');
+            assert.strictEqual(acme.title_rule, 'hn-line@1', 'the split is marked so a re-derive never reads it back');
+            assert.ok(acme.excerpt.startsWith('Acme Corp | Senior Backend Engineer | Remote (US)'), 'the original line stays in the description');
             assert.ok(acme.excerpt.includes('[email]') && acme.excerpt.includes('[phone]'), 'the excerpt is Sources\' privacy-stripped text');
 
             const beta = await s.db.maybe('SELECT * FROM work_listings WHERE id = $1', [store.idOf('hn-whoishiring', 'hn-203')]);
-            assert.deepStrictEqual([beta.title, beta.company, beta.remote], ['a product designer', 'Beta & Co', false]);
+            assert.deepStrictEqual([beta.title, beta.company, beta.remote], ['Product designer at Beta & Co', 'Beta & Co', false]);
             assert.strictEqual(await s.db.maybe('SELECT id FROM work_listings WHERE id = $1', [store.idOf('hn-whoishiring', 'hn-205')]), null);
             assert.strictEqual(await s.db.maybe('SELECT id FROM work_listings WHERE id = $1', [store.idOf('hn-whoishiring', 'hn-206')]), null);
         });
@@ -63,6 +68,11 @@ const hn = (identity, title, summary, over = {}) => ({
             assert.strictEqual(list.status, 200);
             assert.ok(list.text.includes('Hacker News: Who is hiring'));
             assert.ok(list.text.includes('https://news.ycombinator.com/item?id=201'));
+            // The place, terms and pay are the card's meta line, and the title is the roles at the company.
+            assert.ok(list.text.includes('Mechanical Engineer +2 more roles at Nirvana Robotics'));
+            assert.ok(list.text.includes('New York, NY'));
+            assert.ok(list.text.includes('$220K-$300K'));
+            assert.ok(list.text.includes('Onsite'));
             const page = await t.get(`/jobs/${id}`);
             assert.strictEqual(page.status, 200);
             assert.ok(page.text.includes('Hacker News: Who is hiring'));

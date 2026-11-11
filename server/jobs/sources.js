@@ -208,6 +208,7 @@ function toRow(raw, { sourceId, fetchedAt, idOf }) {
         excerpt: excerpt(raw.description_html).slice(0, 400),
         posted_at: raw.posted_at || null,
         sort_at: raw.posted_at || fetchedAt,
+        title_rule: raw.title_rule || null,
         fetched_at: fetchedAt,
     };
     row.search_text = [row.title, row.company, row.tags, row.location, row.excerpt, row.salary].filter(Boolean).join(' ').toLowerCase().slice(0, 4000);

@@ -307,16 +307,16 @@ const recentIds = (s, limit = 1000) => s.db.many(
 /** One listing in, through `q` (the database or a transaction). → true when it is new. */
 async function upsertListing(q, row, fetchedAt) {
     const out = await q.maybe(
-        `INSERT INTO work_listings (id, source, source_id, url, title, company, location, remote, tags, job_type, salary, excerpt, search_text, posted_at, sort_at, fetched_at, first_seen_at, last_seen_at, expired)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $16, false)
+        `INSERT INTO work_listings (id, source, source_id, url, title, company, location, remote, tags, job_type, salary, excerpt, search_text, posted_at, sort_at, fetched_at, first_seen_at, last_seen_at, expired, title_rule)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $16, false, $17)
          ON CONFLICT (source, source_id) DO UPDATE SET
              url = EXCLUDED.url, title = EXCLUDED.title, company = EXCLUDED.company, location = EXCLUDED.location,
              remote = EXCLUDED.remote, tags = EXCLUDED.tags, job_type = EXCLUDED.job_type, salary = EXCLUDED.salary,
              excerpt = EXCLUDED.excerpt, search_text = EXCLUDED.search_text, posted_at = EXCLUDED.posted_at,
              sort_at = EXCLUDED.sort_at, fetched_at = EXCLUDED.fetched_at, last_seen_at = EXCLUDED.last_seen_at,
-             expired = false
+             expired = false, title_rule = EXCLUDED.title_rule
          RETURNING (xmax = 0) AS inserted`,
-        [row.id, row.source, row.source_id, row.url, row.title, row.company, row.location, row.remote, row.tags, row.job_type, row.salary, row.excerpt, row.search_text, row.posted_at, row.sort_at, fetchedAt]);
+        [row.id, row.source, row.source_id, row.url, row.title, row.company, row.location, row.remote, row.tags, row.job_type, row.salary, row.excerpt, row.search_text, row.posted_at, row.sort_at, fetchedAt, row.title_rule || null]);
     return Boolean(out && out.inserted);
 }
 

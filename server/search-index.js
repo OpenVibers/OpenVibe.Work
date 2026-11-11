@@ -32,7 +32,7 @@ function describe(row) {
     const facts = [where, l.salary].filter(Boolean).join(' · ');
     return {
         listed: !row.expired,
-        title: `${l.title} at ${l.company}`,
+        title: listing.fullTitle(l),
         summary: facts || excerpt.slice(0, 200) || null,
         // The body holds what the title and summary do not (the snippet reads both, and repeated the title and place).
         body: [l.tags.join(', '), facts ? excerpt : excerpt.slice(200).replace(/^\S*\s*/, '')].filter(Boolean).join('\n'),
