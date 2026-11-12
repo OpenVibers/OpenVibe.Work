@@ -1,8 +1,9 @@
 'use strict';
 
 /**
- * The background ingest: every six hours, read each job board's public API (server/jobs/sources.js), keep what it
- * shows and retire what it stopped showing.
+ * The background ingest: every six hours, read Remotive's public API (server/jobs/sources.js), keep what it shows and
+ * retire what it stopped showing. Arbeitnow, We Work Remotely, Hacker News "Who is hiring" and RemoteOK are read by
+ * OpenVibe.Sources and followed in server/ingest/from-sources.js; no source in this module may fetch them.
  *
  * It is off unless WORK_INGEST=on, so neither a test nor a development run ever calls a job board; when it is on,
  * each source keeps its own timer, its own last-fetch row and its own failures — one board being down never stops the
@@ -46,6 +47,8 @@ function createIngest({ config, s, fetchImpl = globalThis.fetch, log = console, 
     async function runSource(sourceId) {
         const source = sources.byId(sourceId);
         if (!source) throw new Error(`no source ${sourceId}`);
+        // A board OpenVibe.Sources feeds is not read here, not even by an operator naming it: Sources is its reader.
+        if (source.viaSources) return { source: source.id, skipped: 'from_sources' };
         const startedAt = s.iso();
         const fetchedAt = startedAt;
         await store.beginFetch(s, source.id, startedAt);

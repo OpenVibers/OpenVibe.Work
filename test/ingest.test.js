@@ -1,9 +1,13 @@
 'use strict';
 /**
- * The background ingest against the stand-in boards (test/helpers/boards.js): what it keeps from each board and what
- * it refuses, that reading a board twice updates rather than duplicates, that a board which fails is recorded and
- * does not stop the others, that only a short plain-text excerpt is stored, and that a listing no board has shown for
- * the retention window expires out of the search and the pages.
+ * The background ingest against Remotive's stand-in API (test/helpers/boards.js): what it keeps, that reading the
+ * board twice updates rather than duplicates, that a failure is recorded and does not hide the listings already
+ * gathered, that only a short plain-text excerpt is stored, and that a listing the board stopped showing expires out
+ * of the search and the pages.
+ *
+ * Arbeitnow, We Work Remotely, Hacker News "Who is hiring" and RemoteOK never reach this ingest: they come through
+ * OpenVibe.Sources (server/ingest/from-sources.js, test/from-sources.test.js and test/remoteok-sources.test.js), so
+ * every run lists them as skipped rather than reading them.
  */
 const assert = require('assert');
 const { boot, check, done } = require('./helpers/boot');
@@ -15,73 +19,59 @@ const DAY = 86_400_000;
     const clock = { t: Date.parse('2026-10-01T06:00:00Z') };
     const pinged = [];
     const indexnow = { enabled: false, pingSoon: (urls) => { pinged.push(...urls); return urls.length; } };
-    const t = await boot({ now: () => clock.t, env: { WORK_INGEST_PAGES: '2' }, indexnow });
+    const t = await boot({ now: () => clock.t, indexnow });
     const ingest = t.ctx.ingest;
     const s = t.ctx.s;
 
     try {
-        await check('reading the three boards keeps every listing with its source, its id and the original URL', async () => {
+        await check('the read keeps every Remotive listing, and the boards Sources feeds are skipped', async () => {
             const out = await ingest.runAll();
-            // We Work Remotely is skipped here: it reaches Work through OpenVibe.Sources, never from its own feed.
             assert.deepStrictEqual(out.map((o) => o.source), ['arbeitnow', 'weworkremotely', 'hn-whoishiring', 'remotive', 'remoteok']);
-            assert.ok(out.filter((o) => !['weworkremotely', 'hn-whoishiring'].includes(o.source)).every((o) => o.ok), JSON.stringify(out.map((o) => o.error)));
-            assert.strictEqual(out.find((o) => o.source === 'weworkremotely').skipped, 'from_sources');
-            assert.strictEqual(out.find((o) => o.source === 'hn-whoishiring').skipped, 'from_sources');
-            // Arbeitnow's two pages (2 + 1), Remotive's two jobs, RemoteOK's two listings.
+            assert.ok(out.filter((o) => ['arbeitnow', 'weworkremotely', 'hn-whoishiring', 'remoteok'].includes(o.source)).every((o) => o.skipped === 'from_sources'));
+            assert.strictEqual(out.find((o) => o.source === 'remotive').ok, true, JSON.stringify(out));
             const counts = await store.countsBySource(s);
-            assert.strictEqual(counts.get('arbeitnow').count, 3);
-            assert.strictEqual(counts.get("remotive").count, 3);
-            assert.strictEqual(counts.get('remoteok').count, 2);
+            assert.strictEqual(counts.get('remotive').count, 3);
+            assert.ok(!counts.has('arbeitnow') && !counts.has('remoteok'), 'a board Sources feeds was fetched by Work');
 
-            const page = (await t.get('/api/v1/jobs?q=DevOps')).json();
+            const page = (await t.get('/api/v1/jobs?q=Platform')).json();
             assert.strictEqual(page.jobs.length, 1);
             const job = page.jobs[0];
-            assert.strictEqual(job.source, 'remoteok');
-            assert.strictEqual(job.source_name, 'RemoteOK');
-            assert.strictEqual(job.url, 'https://remoteok.com/remote-jobs/remote-devops-engineer-skyward-1049001');
-            assert.strictEqual(job.company, 'Skyward Cloud');
-            assert.strictEqual(job.salary, '$90,000–$130,000 a year');
+            assert.strictEqual(job.source, 'remotive');
+            assert.strictEqual(job.source_name, 'Remotive');
+            assert.strictEqual(job.url, 'https://remotive.com/remote-jobs/software-dev/platform-engineer-1900789');
+            assert.strictEqual(job.company, 'Meridian Rail');
+            assert.strictEqual(job.salary, '€70,000 – €85,000');
             assert.strictEqual(job.remote, true);
-            assert.deepStrictEqual(job.tags, ['devops', 'kubernetes']);
-            assert.ok(job.posted_at.startsWith('2026-10-01'));
+            assert.deepStrictEqual(job.tags, ['kubernetes', 'terraform', 'Software Development']);
+            assert.ok(job.posted_at.startsWith('2026-09-29'));
 
-            // RemoteOK's first array element is a legal notice, not a listing: nothing was made of it.
             const all = (await t.get('/api/v1/jobs?limit=100')).json();
-            assert.strictEqual(all.count, 8);
-            assert.ok(!JSON.stringify(all.jobs).includes('personal use'), 'the legal notice became a listing');
+            assert.strictEqual(all.count, 3);
 
             // Search engines hear about each new listing page and the sitemap (IndexNow), absolute and on this host.
             const jobUrls = pinged.filter((u) => u !== 'https://openvibe.work/sitemap.xml');
-            assert.strictEqual(jobUrls.length, 8, pinged.join(' '));
+            assert.strictEqual(jobUrls.length, 3, pinged.join(' '));
             assert.deepStrictEqual(jobUrls.sort(), all.jobs.map((j) => `https://openvibe.work/jobs/${j.id}`).sort());
             assert.ok(pinged.includes('https://openvibe.work/sitemap.xml'));
         });
 
-        await check('every request used this service\'s User-Agent, a JSON Accept, and only the configured hosts', async () => {
-            assert.ok(t.boards.requests.length >= 4);
+        await check('the one request used this service\'s User-Agent, a JSON Accept, and only the configured host', async () => {
+            assert.ok(t.boards.requests.length >= 1);
             for (const r of t.boards.requests) {
                 assert.strictEqual(r.userAgent, 'OpenVibeWork/0.1 (+https://openvibe.work)', r.path);
                 assert.match(r.accept, /application\/json/);
             }
-            assert.deepStrictEqual([...new Set(t.boards.requests.map((r) => r.path))].sort(), ['/arbeitnow', '/remoteok', '/remotive']);
-            // Arbeitnow is paginated as configured (WORK_INGEST_PAGES=2); Remotive is asked for a limit.
-            assert.ok(t.boards.requests.some((r) => r.path === '/arbeitnow' && r.query === '?page=1'));
-            assert.ok(t.boards.requests.some((r) => r.path === '/arbeitnow' && r.query === '?page=2'));
+            assert.deepStrictEqual([...new Set(t.boards.requests.map((r) => r.path))], ['/remotive']);
             assert.ok(t.boards.requests.some((r) => r.path === '/remotive' && r.query === '?limit=100'));
         });
 
         await check('an HTML description becomes a short plain-text excerpt: no tags, no script code, under 320 characters', async () => {
-            const job = (await t.get('/api/v1/jobs?q=Frontend')).json().jobs[0];
+            const job = (await t.get('/api/v1/jobs?q=Platform')).json().jobs[0];
             assert.ok(!/[<>]/.test(job.excerpt), job.excerpt);
-            assert.ok(!/window\.__pwned/.test(job.excerpt), 'script content was kept');
-            assert.ok(job.excerpt.includes('Build the design system'), job.excerpt);
+            assert.ok(job.excerpt.includes('Kubernetes clusters'), job.excerpt);
             assert.ok(job.excerpt.length <= 320, String(job.excerpt.length));
-            const page = (await t.get('/api/v1/jobs?q=Senior Backend')).json().jobs[0];
-            assert.ok(page.excerpt.includes('PostgreSQL'), page.excerpt);
-            assert.ok(page.excerpt.includes('fleet of Node.js services'), page.excerpt);
-            // The full description is nowhere in the database: only the excerpt is stored.
             const dump = await t.dbDump();
-            assert.ok(!dump.includes('billing pipeline end to end</p>'), 'the full description was stored');
+            assert.ok(!dump.includes('The office dog is called Waffle'), 'the full description was stored');
         });
 
         await check('the text helper strips markup and entities, and cuts a long excerpt on a word', () => {
@@ -106,54 +96,49 @@ const DAY = 86_400_000;
             assert.ok(!long.includes('  ') && /^\S/.test(long), 'the excerpt is cut mid-word or padded');
         });
 
-        await check('reading a board again updates the listing in place: no duplicate, same id, newer fetch', async () => {
-            const before = (await t.get('/api/v1/jobs?q=DevOps')).json().jobs[0];
+        await check('reading the board again updates the listing in place: no duplicate, same id, newer fetch', async () => {
+            const before = (await t.get('/api/v1/jobs?q=Platform')).json().jobs[0];
             const seenBefore = before.fetched_at;
             clock.t += 2 * 3600_000;
             // The board's own text changed under the same id, as a board edits a listing.
-            t.boards.fixtures.remoteok[1].position = 'DevOps Engineer (Platform)';
-            const remoteok = (await ingest.runAll()).find((o) => o.source === 'remoteok');
+            t.boards.fixtures.remotive[1].title = 'Platform Engineer (Ops)';
+            const remotive = (await ingest.runAll()).find((o) => o.source === 'remotive');
             pinged.length = 0;
-            assert.deepStrictEqual([remoteok.ok, remoteok.listings, remoteok.added, remoteok.updated], [true, 2, 0, 2]);
+            assert.deepStrictEqual([remotive.ok, remotive.listings, remotive.added, remotive.updated], [true, 3, 0, 3]);
             assert.deepStrictEqual(pinged, [], 'a listing read again is not new: no IndexNow ping');
-            const after = (await t.get('/api/v1/jobs?q=DevOps')).json().jobs[0];
+            const after = (await t.get('/api/v1/jobs?q=Platform')).json().jobs[0];
             assert.strictEqual(after.id, before.id, 'the id must not change when a board is read again');
-            assert.strictEqual(after.title, 'DevOps Engineer (Platform)');
+            assert.strictEqual(after.title, 'Platform Engineer (Ops)');
             assert.ok(after.fetched_at > seenBefore, 'fetched_at did not move');
-            assert.strictEqual((await t.get("/api/v1/jobs?limit=100")).json().count, 8);
-            t.boards.fixtures.remoteok[1].position = 'DevOps Engineer';
+            assert.strictEqual((await t.get('/api/v1/jobs?limit=100')).json().count, 3);
+            t.boards.fixtures.remotive[1].title = 'Platform Engineer';
         });
 
         await check('a listing the board stopped showing expires out, leaving the others', async () => {
-            // Arbeitnow's page 2 goes quiet: one listing was there, is not any more.
-            const gone = t.boards.fixtures.arbeitnowPage2.shift();
+            const gone = t.boards.fixtures.remotive.shift();
             clock.t += 31 * DAY;
             await ingest.runAll();
-            assert.strictEqual((await store.countsBySource(s)).get('arbeitnow').count, 2);
-            assert.strictEqual((await t.get('/api/v1/jobs?q=Data Analyst')).json().count, 0);
-            const row = await s.db.maybe("SELECT * FROM work_listings WHERE source_id = $1 AND expired", [gone.slug]);
+            assert.strictEqual((await store.countsBySource(s)).get('remotive').count, 2);
+            assert.strictEqual((await t.get('/api/v1/jobs?q=Support')).json().count, 0);
+            const row = await s.db.maybe('SELECT * FROM work_listings WHERE source_id = $1 AND expired', [String(gone.id)]);
             assert.ok(row, 'the expired listing was deleted rather than kept');
             assert.strictEqual((await t.get(`/jobs/${row.id}`)).status, 404);
             // And it comes back if the board shows it again.
-            t.boards.fixtures.arbeitnowPage2.push(gone);
+            t.boards.fixtures.remotive.push(gone);
             await ingest.runAll();
-            assert.strictEqual((await t.get('/api/v1/jobs?q=Data Analyst')).json().count, 1);
+            assert.strictEqual((await t.get('/api/v1/jobs?q=Support')).json().count, 1);
         });
 
-        await check('a board that fails is recorded, says why, and does not stop the others', async () => {
+        await check('a failed read is recorded, says why, and never empties the board', async () => {
             clock.t += 3600_000;
             t.boards.state.remotive = 'fail';
-            t.boards.state.remoteok = 'html';
             const out = await ingest.runAll();
             assert.strictEqual(out.find((o) => o.source === 'remotive').ok, false);
-            assert.strictEqual(out.find((o) => o.source === 'arbeitnow').ok, true, 'one board failing stopped another');
             const src = (await t.get('/api/v1/sources')).json();
             const remotive = src.sources.find((x) => x.id === 'remotive');
             assert.strictEqual(remotive.last_fetch.ok, false);
             assert.match(remotive.last_fetch.error, /500/);
             assert.ok(remotive.last_fetch.finished_at, 'the failure was not timestamped');
-            assert.match(src.sources.find((x) => x.id === 'remoteok').last_fetch.error, /not JSON/);
-            // What was already gathered stays: a failed read never empties the board.
             assert.strictEqual(remotive.listings, 3);
             t.boards.reset();
         });

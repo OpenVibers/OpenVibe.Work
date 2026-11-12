@@ -13,7 +13,7 @@ const { boot, check, done } = require('./helpers/boot');
     // The clock starts at the real now: the session is a Network token, and this service checks it against its own
     // clock, so a test that moves time must move only a little or the token stops verifying.
     const clock = { t: Date.now() };
-    const t = await boot({ now: () => clock.t, env: { WORK_INGEST_PAGES: '2' } });
+    const t = await boot({ now: () => clock.t });
     const kim = t.network.addUser('kim');
     const lee = t.network.addUser('lee');
     const SAME = { 'sec-fetch-site': 'same-origin' };
@@ -43,14 +43,14 @@ const { boot, check, done } = require('./helpers/boot');
             const empty = await t.get('/api/v1/saved-searches', { as: kim, json: { q: '   ' }, headers: SAME });
             assert.strictEqual(empty.status, 422);
             assert.strictEqual(empty.json().code, 'work.saved_searches.empty');
-            const remote = await t.get('/api/v1/saved-searches', { as: kim, json: { q: 'devops', remote: 'yes', location: 'Worldwide' }, headers: SAME });
+            const remote = await t.get('/api/v1/saved-searches', { as: kim, json: { q: 'platform', remote: 'yes' }, headers: SAME });
             assert.strictEqual(remote.status, 201, remote.text);
             const saved = remote.json();
-            assert.deepStrictEqual(saved.filters, { remote: 'true', type: '', location: 'worldwide' });
-            assert.strictEqual(saved.search_path, '/jobs?q=devops&remote=true&location=worldwide');
+            assert.deepStrictEqual(saved.filters, { remote: 'true', type: '', location: '' });
+            assert.strictEqual(saved.search_path, '/jobs?q=platform&remote=true');
             // Running it again gives the same listings the search would.
             const run = (await t.get(saved.search_path)).text;
-            assert.ok(run.includes('DevOps Engineer'));
+            assert.ok(run.includes('Platform Engineer'));
         });
 
         await check('a signed-in write from another site is refused; a Bearer token is not (it is that person\'s own)', async () => {

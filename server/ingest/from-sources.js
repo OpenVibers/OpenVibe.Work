@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Job boards read through OpenVibe.Sources (plan 2026-10-22, track F2; We Work Remotely added 2026-10-30).
+ * Job boards read through OpenVibe.Sources (plan 2026-10-22, track F; We Work Remotely added 2026-10-30, RemoteOK
+ * 2026-11-12).
  *
  * Sources fetches a board (under its robots and terms checks) and keeps each job as an item. Work follows Sources'
  * change feed (openvibe-publishing/ingest: the cursor in work_ingest_cursor, one transaction per page) and keeps one
@@ -12,12 +13,12 @@
  * The thin-listing gate (sources.toRow) is the same for all of them: no id, no title, no company or no http(s) link
  * back means the listing is not published.
  *
- * A job Sources retires (the board has not shown it for a week: retire_after_sec) or removes is expired here, like a
- * listing a board stopped showing. Work's own expiry sweep leaves these listings alone: an unchanged job is no change in
- * Sources' feed, so Work never hears it was seen again, and Sources' retirement is what says it is gone.
+ * A job Sources retires (the board has not shown it for its own window: retire_after_sec) or removes is expired here,
+ * like a listing a board stopped showing. Work's own expiry sweep leaves these listings alone: an unchanged job is no
+ * change in Sources' feed, so Work never hears it was seen again, and Sources' retirement is what says it is gone.
  *
- * Pulls 30 seconds after start and then hourly. Each board has its own switch (WORK_ARBEITNOW_FROM=sources,
- * WORK_WWR_FROM=sources); a board that is not switched on is left to its own fetch, as before.
+ * Pulls 30 seconds after start and then hourly. Remotive is the one board still read by Work itself: its robots.txt
+ * disallows /api/*, so Sources may not fetch it, while its API terms explicitly grant a named, linked use.
  */
 const ingest = require('openvibe-publishing/ingest');
 const sources = require('../jobs/sources');
@@ -138,6 +139,35 @@ function rawOfHn(item) {
 /** The start of a plain-text summary, with whitespace collapsed, for comparing it with the comment's first line. */
 const excerptLines = (text) => String(text || '').replace(/\s+/g, ' ').trim();
 
+/** A salary bound as RemoteOK gives it (a number), or null; never a guess from a missing field. */
+const amount = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+};
+
+/**
+ * A Sources item → the parsed row Work's own RemoteOK parse makes (server/jobs/sources.js): the board's id and URL,
+ * its position as the title, and its salary bounds written the way the board's own fetch wrote them. Sources has
+ * already turned the HTML description into a short plain-text excerpt, which is all Work stores.
+ */
+function rawOfRemoteOk(item) {
+    const f = (item && item.fields) || {};
+    const min = amount(f.salary_min);
+    const max = amount(f.salary_max);
+    return {
+        source_id: item.identity,
+        url: item.canonical_url,
+        title: item.title,
+        company: typeof f.company === 'string' ? f.company.trim() : null,
+        location: typeof f.location === 'string' ? f.location.trim() || null : null,
+        remote: true,                               // the board carries remote work only
+        tags: list(f.tags),
+        job_type: typeof f.job_type === 'string' ? f.job_type.trim() || null : null,
+        salary: min && max ? `$${min.toLocaleString('en-US')}–$${max.toLocaleString('en-US')} a year` : null,
+        posted_at: item.published_at || null,
+        description_html: item.summary || '',
+    };
+}
 
 /**
  * The boards Work reads through OpenVibe.Sources: the Sources key an item arrives under, the id the listing is
@@ -147,22 +177,15 @@ const SOURCES = {
     [SOURCE_KEY]: { source_id: SOURCE_ID, kind: 'job', rawOf },
     'weworkremotely': { source_id: 'weworkremotely', kind: 'article', rawOf: rawOfWwr },
     'hn-whoishiring': { source_id: 'hn-whoishiring', kind: 'job', rawOf: rawOfHn },
-};
-
-/** The switch that says a board comes from Sources instead of from its own fetch. */
-const SWITCH = {
-    arbeitnow: (config) => (config.sources && config.sources.arbeitnowFrom) === 'sources',
-    weworkremotely: (config) => (config.sources && config.sources.weworkremotelyFrom) === 'sources',
-    'hn-whoishiring': (config) => (config.sources && config.sources.hnWhoishiringFrom) === 'sources',
+    'remoteok-job-board': { source_id: 'remoteok', kind: 'job', rawOf: rawOfRemoteOk },
 };
 
 function createFromSources({ config, s, fetchImpl = globalThis.fetch, log = console, source = null, afterRun = null, indexnow = null }) {
     const url = String((config.sources && config.sources.internalUrl) || '').replace(/\/+$/, '');
-    // The boards that are switched on and therefore read through Sources. Each keeps its own listing id.
-    const active = Object.entries(SOURCES).filter(([, e]) => (SWITCH[e.source_id] || (() => false))(config));
+    // Every board in SOURCES is read through Sources; each keeps its own listing id.
+    const active = Object.entries(SOURCES);
     const activeByKey = Object.fromEntries(active);
-    const on = active.length > 0;
-    const client = source || (on && url && config.oauth.clientSecret
+    const client = source || (url && config.oauth.clientSecret
         ? ingest.createSourcesClient({ config: { ...config, sources: { internalUrl: url, category: 'jobs' } }, fetchImpl })
         : null);
     const cursor = ingest.createChangeCursor(s.db, { prefix: 'work', now: s.now });
@@ -239,4 +262,4 @@ function createFromSources({ config, s, fetchImpl = globalThis.fetch, log = cons
     return { enabled: Boolean(client), pull, start, stop, apply, SOURCE_ID, sourceIds: active.map(([, e]) => e.source_id) };
 }
 
-module.exports = { createFromSources, rawOf, rawOfWwr, rawOfHn, SOURCES, SOURCE_ID, SOURCE_KEY, TITLE_RULE };
+module.exports = { createFromSources, rawOf, rawOfWwr, rawOfHn, rawOfRemoteOk, SOURCES, SOURCE_ID, SOURCE_KEY, TITLE_RULE };

@@ -1,12 +1,12 @@
 'use strict';
 /**
- * Arbeitnow through OpenVibe.Sources (server/ingest/from-sources.js; plan 2026-10-22, track F2), against a Sources
- * stand-in serving its change feed:
+ * Arbeitnow, We Work Remotely, Hacker News and RemoteOK through OpenVibe.Sources (server/ingest/from-sources.js;
+ * plan 2026-10-22, track F), against a Sources stand-in serving its change feed:
  *   - each job item becomes the listing Work's own fetch made (same slug → same id and URL), with its excerpt, tags and
  *     job types; other sources' items and jobs Work may not publish are held;
  *   - the board is no longer read, and Work's expiry sweep leaves these listings to Sources;
  *   - a job Sources retires (gone_from_source) expires here; the fetch record says what came through;
- *   - without WORK_ARBEITNOW_FROM=sources nothing changes.
+ *   - without a Sources URL and client secret the follower stays off.
  */
 const assert = require('assert');
 const { boot, check, done } = require('./helpers/boot');
@@ -36,7 +36,7 @@ const job = (identity, over = {}) => ({
     const clock = { t: Date.parse('2026-10-23T06:00:00Z') };
     const pinged = [];
     const indexnow = { enabled: false, pingSoon: (urls) => { pinged.push(...urls); return urls.length; } };
-    const t = await boot({ now: () => clock.t, env: { WORK_ARBEITNOW_FROM: 'sources' }, sourcesClient, indexnow });
+    const t = await boot({ now: () => clock.t, sourcesClient, indexnow });
     const s = t.ctx.s;
     const from = t.ctx.fromSources;
 
@@ -90,8 +90,8 @@ const job = (identity, over = {}) => ({
             assert.deepStrictEqual([(await from.pull()).applied, (await from.pull()).removed], [0, 0]);
         });
 
-        await check('without WORK_ARBEITNOW_FROM=sources nothing follows Sources', async () => {
-            const config = { ...t.config, sources: { ...t.config.sources, arbeitnowFrom: 'board', internalUrl: 'http://127.0.0.1:1' } };
+        await check('without a Sources URL and client secret the follower stays off', async () => {
+            const config = { ...t.config, sources: { ...t.config.sources, internalUrl: '' }, oauth: { ...t.config.oauth, clientSecret: '' } };
             const off = createFromSources({ config, s, log: { log() {}, warn() {} } });
             assert.strictEqual(off.enabled, false);
             assert.deepStrictEqual(await off.pull(), { skipped: true });

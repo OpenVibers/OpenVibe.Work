@@ -74,7 +74,7 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
   the canonical subject. Work holds only `user:usr_…` on its own rows.
 - **Event delivery** — OpenVibe.Events: Work receives `network.account.export_requested` and `network.account.deleted`
   and creates its two subscriptions at boot; it does not own the topics or the delivery.
-- **The listings themselves** — the boards (Arbeitnow, Remotive, RemoteOK and Hacker News "Who is hiring"): Work keeps a short excerpt and a link back,
+- **The listings themselves** — the boards (Arbeitnow, We Work Remotely, RemoteOK, Hacker News "Who is hiring" and Remotive): Work keeps a short excerpt and a link back,
   never the full description, and reads each board only on the terms it publishes. A board that writes a listing as
   one pipe-separated line (Hacker News) has that line split into company, role(s), place, terms and pay
   (`server/jobs/hiring-line.js`); the line itself stays at the front of the excerpt.
@@ -90,9 +90,9 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
 - **OpenVibe.Actor** — the person's agent: Work posts `POST /api/v1/tasks` with its own service token (capability
   `actor.task.create`, audience `openvibe.actor`) when a person asks for help preparing an application
   (`WORK_ACTOR_URL`, `WORK_ACTOR_PUBLIC_URL`, `WORK_ACTOR_TIMEOUT_MS`).
-- **The job boards** — Arbeitnow, Remotive and RemoteOK are the only hosts Work itself fetches (`WORK_ARBEITNOW_URL`,
-  `WORK_REMOTIVE_URL`, `WORK_REMOTEOK_URL`, `WORK_USER_AGENT`). We Work Remotely and Hacker News "Who is hiring" arrive
-  through OpenVibe.Sources (`WORK_WWR_FROM=sources`, `WORK_HN_WHOISHIRING_FROM=sources`).
+- **The job boards** — Remotive is the only host Work itself fetches (`WORK_REMOTIVE_URL`, `WORK_USER_AGENT`), because
+  its API terms grant a named, linked use while its robots.txt disallows `/api/*`. Arbeitnow, RemoteOK, We Work Remotely
+  and Hacker News "Who is hiring" arrive through OpenVibe.Sources (`server/ingest/from-sources.js`).
 - **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
   `WORK_PGLITE_DIR`) and **Valkey** for shared limit counters (`VALKEY_URL`, `VALKEY_PREFIX`).
 - **Packages**: `openvibe-contracts` v0.289.1, `openvibe-sdk` v0.150.0 (`db`, `auth`, `account-data`, `limits`,
@@ -151,9 +151,9 @@ Each board is read through its own public API, and its terms are applied on ever
 
 | Source | API | Terms, as applied here |
 |---|---|---|
-| **Arbeitnow** | `GET https://www.arbeitnow.com/api/job-board-api?page=N` | Free to use. Arbeitnow is named on every listing and the listing links to its page on arbeitnow.com. Its first pages (configurable) are read. With `WORK_ARBEITNOW_FROM=sources` Work reads none: it follows OpenVibe.Sources' `arbeitnow-job-board` items (`server/ingest/from-sources.js`), and a job the board stops showing is retired by Sources after a week. |
-| **Remotive** | `GET https://remotive.com/api/remote-jobs?limit=100` | Remotive must be named as the source and the listing linked. The API is called about four times a day — the six-hour interval is exactly that. |
-| **RemoteOK** | `GET https://remoteok.com/api` | RemoteOK must be named as the source and the listing linked. The response's first element is a legal notice, not a listing, and is skipped. |
+| **Arbeitnow** | `GET https://www.arbeitnow.com/api/job-board-api?page=N` | Read by OpenVibe.Sources (source `arbeitnow-job-board`), never by Work: its first three pages are fetched under the board's robots and terms, and Work follows that change feed (`server/ingest/from-sources.js`). Arbeitnow is named on every listing and the listing links to its page on arbeitnow.com; a job the board stops showing is retired by Sources after a week. |
+| **Remotive** | `GET https://remotive.com/api/remote-jobs?limit=100` | Remotive must be named as the source and the listing linked. The API is called about four times a day — the six-hour interval is exactly that. It stays Work's own fetch because remotive.com/robots.txt disallows `/api/*`, so OpenVibe.Sources may not read it, while Remotive's API terms grant the named, linked use. |
+| **RemoteOK** | `GET https://remoteok.com/api` | Read by OpenVibe.Sources (source `remoteok-job-board`), never by Work: the API is fetched under remoteok.com's robots.txt and its terms. RemoteOK must be named as the source and the listing linked; the response's first element is a legal notice, not a listing, and Sources' mapping skips it. |
 
 What is stored per listing: `source`, the board's own id, the original `url`, title, company, location, the remote
 flag, tags, job type, salary text when the board gives one, when it was posted, when we fetched it, when it was first
@@ -171,9 +171,8 @@ Network), `BASE_URL`, `DATABASE_URL` and `DATABASE_DIRECT_URL`. The database is 
 Network signing key, the OAuth client and Valkey are optional (the service says so, per check, on `/api/ready`).
 
 The ingest is **off** unless `WORK_INGEST=on`, so a development run and the test suite never call a job board. When it
-is on, `WORK_INGEST_INTERVAL_HOURS` (6), `WORK_INGEST_PAGES` (3), `WORK_INGEST_LIMIT` (100), `WORK_INGEST_TIMEOUT_MS`
-(15000), `WORK_RETENTION_DAYS` (30) and the per-source base URLs (`WORK_ARBEITNOW_URL`, `WORK_REMOTIVE_URL`,
-`WORK_REMOTEOK_URL`) decide what it does.
+is on, `WORK_INGEST_INTERVAL_HOURS` (6), `WORK_INGEST_LIMIT` (100), `WORK_INGEST_TIMEOUT_MS` (15000),
+`WORK_RETENTION_DAYS` (30), `WORK_REMOTIVE_URL` and `OV_SOURCES_INTERNAL_URL` decide what it does.
 
 The agent pillar is driven by `WORK_ACTOR_URL` (default `http://127.0.0.1:4950`) — unset it (an empty value) and
 `POST …/assist` answers 503 `work.actor_unavailable` — and `WORK_ACTOR_PUBLIC_URL` (default `https://openvibe.actor`),

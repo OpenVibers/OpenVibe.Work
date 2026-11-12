@@ -51,42 +51,17 @@ function httpUrl(v) {
     } catch { return null; }
 }
 
-const money = (n) => (n == null || n === '' || !Number.isFinite(Number(n)) || Number(n) <= 0 ? null : Math.round(Number(n)));
-
 const SOURCES = [
     {
         id: 'arbeitnow',
         name: 'Arbeitnow',
         homepage: 'https://www.arbeitnow.com/',
-        terms: 'Arbeitnow publishes its job board API free of charge. We attribute Arbeitnow by name and link every listing back to its page on arbeitnow.com.',
+        terms: 'Arbeitnow publishes its job board API free of charge. OpenVibe.Sources reads its first three pages under the board\'s own robots and terms checks; Work follows that source (source key arbeitnow-job-board). We attribute Arbeitnow by name and link every listing back to its page on arbeitnow.com.',
         attribution: 'Listing from Arbeitnow',
         remoteDefault: false,
-        requests(config) {
-            const pages = [];
-            for (let page = 1; page <= config.ingest.pages; page++) {
-                const u = new URL(config.sources.arbeitnow.url);
-                u.searchParams.set('page', String(page));
-                pages.push(u.toString());
-            }
-            return pages;
-        },
-        // { data: [ { slug, company_name, title, description (HTML), remote, url, tags[], job_types[], location, created_at } ] }
-        parse(json) {
-            const rows = (json && Array.isArray(json.data)) ? json.data : [];
-            return rows.map((r) => ({
-                source_id: clip(r.slug || r.url, 200),
-                url: httpUrl(r.url),
-                title: clip(r.title, 300),
-                company: clip(r.company_name, 200),
-                location: clip(r.location, 200),
-                remote: r.remote === true,
-                tags: list(r.tags),
-                job_type: list(r.job_types).join(', ') || null,
-                salary: null,                       // this board gives no salary
-                posted_at: instant(r.created_at),
-                description_html: r.description,
-            }));
-        },
+        viaSources: true,                           // read through OpenVibe.Sources, never by Work itself
+        requests() { return []; },
+        parse() { return []; },                     // Work never calls the Arbeitnow API itself
     },
     {
         id: 'weworkremotely',
@@ -146,32 +121,12 @@ const SOURCES = [
         id: 'remoteok',
         name: 'RemoteOK',
         homepage: 'https://remoteok.com/',
-        terms: 'RemoteOK asks that a use of its API names RemoteOK as the source and links back to the listing. The response\'s first element is a legal notice, not a listing, and is skipped.',
+        terms: 'RemoteOK asks that a use of its API names RemoteOK as the source and links back to the listing. OpenVibe.Sources reads the API under those terms and its robots.txt; the response\'s first element is a legal notice, not a listing, and is skipped. Work follows that source (source key remoteok-job-board).',
         attribution: 'Listing from RemoteOK',
         remoteDefault: true,
-        requests(config) { return [config.sources.remoteok.url]; },
-        // The response is an array whose first element is the legal notice; every later element is a listing.
-        parse(json) {
-            const all = Array.isArray(json) ? json : [];
-            const rows = all.filter((r) => r && (r.id != null || r.slug) && r.position);
-            return rows.map((r) => {
-                const min = money(r.salary_min);
-                const max = money(r.salary_max);
-                return {
-                    source_id: clip(r.id != null ? r.id : r.slug, 200),
-                    url: httpUrl(r.url || (r.slug ? `https://remoteok.com/remote-jobs/${r.slug}` : null)),
-                    title: clip(r.position, 300),
-                    company: clip(r.company, 200),
-                    location: clip(r.location, 200),
-                    remote: true,
-                    tags: list(r.tags),
-                    job_type: clip(r.job_type || r.type, 80) || null,
-                    salary: min && max ? `$${min.toLocaleString('en-US')}–$${max.toLocaleString('en-US')} a year` : null,
-                    posted_at: instant(r.date),
-                    description_html: r.description,
-                };
-            });
-        },
+        viaSources: true,                           // read through OpenVibe.Sources, never by Work itself
+        requests() { return []; },
+        parse() { return []; },                     // Work never calls the RemoteOK API itself
     },
 ];
 

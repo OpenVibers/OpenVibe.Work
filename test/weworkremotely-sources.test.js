@@ -36,7 +36,7 @@ const wwr = (identity, over = {}) => ({
 
 (async () => {
     const clock = { t: Date.parse('2026-10-30T08:00:00Z') };
-    const t = await boot({ now: () => clock.t, env: { WORK_WWR_FROM: 'sources' }, sourcesClient });
+    const t = await boot({ now: () => clock.t, sourcesClient });
     const s = t.ctx.s;
     const from = t.ctx.fromSources;
 
