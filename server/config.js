@@ -77,25 +77,15 @@ function load(env = process.env) {
             timeoutMs: Math.max(1000, int(env.WORK_ACTOR_TIMEOUT_MS, 15000)),
         },
 
-        // The public job boards the ingest reads (server/jobs/sources.js). The base URLs are configurable so a
-        // test points them at a stand-in server; nothing else in the service ever fetches a URL, and never one a
-        // caller typed. Their terms are quoted in the manifest that describes each source, and applied on every
-        // page that shows a listing: the source is named and the original listing is linked.
+        // The one public job board the ingest still reads itself (server/jobs/sources.js): Remotive's API terms grant a
+        // named, linked use, while its robots.txt disallows /api/*, so Sources may not fetch it. Its base URL is
+        // configurable so a test points it at a stand-in; nothing else in the service ever fetches a URL, and never one
+        // a caller typed. Arbeitnow, We Work Remotely, Hacker News "Who is hiring" and RemoteOK come through
+        // OpenVibe.Sources (server/ingest/from-sources.js), which needs Sources (127.0.0.1:4720) and the OAuth client
+        // secret (Network grants Work sources.item.read).
         sources: {
-            arbeitnow: { url: trim(env.WORK_ARBEITNOW_URL || 'https://www.arbeitnow.com/api/job-board-api') },
             remotive: { url: trim(env.WORK_REMOTIVE_URL || 'https://remotive.com/api/remote-jobs') },
-            remoteok: { url: trim(env.WORK_REMOTEOK_URL || 'https://remoteok.com/api') },
-            // OpenVibe.Sources (server/ingest/from-sources.js): WORK_ARBEITNOW_FROM=sources takes Arbeitnow from Sources'
-            // arbeitnow-job-board instead of the board (plan 2026-10-22, F2); it needs Sources (127.0.0.1:4720) and the
-            // OAuth client secret (Network grants Work sources.item.read). Anything else keeps Work's own fetch.
             internalUrl: trim(env.OV_SOURCES_INTERNAL_URL == null ? 'http://127.0.0.1:4720' : env.OV_SOURCES_INTERNAL_URL),
-            arbeitnowFrom: String(env.WORK_ARBEITNOW_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
-            // We Work Remotely reaches Work the same way (WORK_WWR_FROM=sources, the weworkremotely key in Sources);
-            // it is off until the board is read through Sources, and Work never fetches the feed itself.
-            weworkremotelyFrom: String(env.WORK_WWR_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
-            // Hacker News "Who is hiring" reaches Work the same way (WORK_HN_WHOISHIRING_FROM=sources, the
-            // hn-whoishiring key in Sources); its resolver reads the thread, never Work itself.
-            hnWhoishiringFrom: String(env.WORK_HN_WHOISHIRING_FROM || '').trim().toLowerCase() === 'sources' ? 'sources' : 'board',
         },
         // The disclosure rate the jobs page shows (server/jobs/store.js): of the last N listings we fetched, how
         // many carried a salary. N is configuration, so the number on the page is never typed in by hand.
@@ -111,8 +101,7 @@ function load(env = process.env) {
             enabled: String(env.WORK_INGEST || '').toLowerCase() === 'on',
             intervalMs: Math.max(1, num(env.WORK_INGEST_INTERVAL_HOURS, 6)) * 3_600_000,
             timeoutMs: Math.max(1000, int(env.WORK_INGEST_TIMEOUT_MS, 15_000)),
-            // Arbeitnow's board is paginated; the first N pages are read. Remotive takes a limit.
-            pages: Math.max(1, int(env.WORK_INGEST_PAGES, 3)),
+            // Remotive takes a limit; the boards read through Sources carry their own mappings.
             limit: Math.max(1, int(env.WORK_INGEST_LIMIT, 100)),
             retentionDays: Math.max(1, int(env.WORK_RETENTION_DAYS, 30)),
             userAgent: env.WORK_USER_AGENT || `OpenVibeWork/0.1 (+${baseUrl})`,

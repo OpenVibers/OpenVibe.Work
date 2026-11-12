@@ -15,9 +15,10 @@ board, where the reader applies.
 - **Ingest:** `server/ingest/` (`index.js`, `from-sources.js`) and `server/jobs/` (`sources.js`,
   `store.js`, `text.js`, `hiring-line.js`, `job-types.js`, `places.js`, `companies.js`,
   `rederive-hn-titles.js`); run it with `npm run ingest` or the in-process interval.
-- **Sources:** Arbeitnow, Remotive, RemoteOK and Hacker News "Who is hiring", each through its own
-  public API and each with its terms applied on every page (`/sources`, `GET /api/v1/sources`);
-  Arbeitnow can instead be read from OpenVibe.Sources (`WORK_ARBEITNOW_FROM=sources`).
+- **Sources:** Arbeitnow, We Work Remotely, RemoteOK and Hacker News "Who is hiring" arrive through
+  OpenVibe.Sources (`server/ingest/from-sources.js`); Remotive is the one board Work still fetches
+  itself (its robots.txt disallows `/api/*`, its API terms grant the named, linked use). Every
+  board's terms are applied on every page (`/sources`, `GET /api/v1/sources`).
 - **Docs/config:** README "Data sources and their terms", `SECURITY.md`, `.env.example`.
 
 ## Owns, does not own

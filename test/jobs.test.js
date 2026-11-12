@@ -13,20 +13,28 @@ const ldBlocks = (html) => [...html.matchAll(/<script type="application\/ld\+jso
 const first = async (t, path) => (await t.get(path)).json();
 
 (async () => {
-    const t = await boot({ env: { WORK_INGEST_PAGES: '2' } });
+    const t = await boot();
     try {
+        // A listing with a city and a hostile title, so the home's city list and the escaping are exercised.
+        t.boards.add('remotive', {
+            id: 1900970, url: 'https://remotive.com/remote-jobs/software-dev/frontend-engineer-1900970',
+            title: 'Frontend Engineer <script>alert("xss")</script>', company_name: 'Helles Werk',
+            category: 'Software Development', tags: ['typescript', 'css'], job_type: 'permanent, full_time',
+            publication_date: '2026-10-03T09:00:00', candidate_required_location: 'Berlin, Germany', salary: '',
+            description: '<div>Build the design system.<script>window.__pwned = true</script></div><div>TypeScript, CSS.</div>',
+        });
         await t.ctx.ingest.runAll();
 
         await check('search: text matches the title, the company and the tags; results are newest first', async () => {
-            const byTitle = await first(t, '/api/v1/jobs?q=devops');
-            assert.deepStrictEqual(byTitle.jobs.map((j) => j.title), ['DevOps Engineer']);
-            const byCompany = await first(t, '/api/v1/jobs?q=Skyward');
-            assert.deepStrictEqual(byCompany.jobs.map((j) => j.company), ['Skyward Cloud']);
-            // The term is found in a tag and in the excerpt, so both listings answer.
+            const byTitle = await first(t, '/api/v1/jobs?q=platform');
+            assert.deepStrictEqual(byTitle.jobs.map((j) => j.title), ['Platform Engineer']);
+            const byCompany = await first(t, '/api/v1/jobs?q=Meridian');
+            assert.deepStrictEqual(byCompany.jobs.map((j) => j.company), ['Meridian Rail']);
+            // The term is found in a tag and in the excerpt.
             const byTag = await first(t, '/api/v1/jobs?q=terraform');
-            assert.deepStrictEqual(byTag.jobs.map((j) => j.company).sort(), ['Meridian Rail', 'Skyward Cloud']);
+            assert.deepStrictEqual(byTag.jobs.map((j) => j.company), ['Meridian Rail']);
             // Case does not matter, and a % a caller typed is a character, not a wildcard.
-            assert.strictEqual((await first(t, '/api/v1/jobs?q=DEVOPS')).count, 1);
+            assert.strictEqual((await first(t, '/api/v1/jobs?q=PLATFORM')).count, 1);
             assert.strictEqual((await first(t, '/api/v1/jobs?q=%25')).count, 0);
             const all = await first(t, '/api/v1/jobs?limit=100');
             const dates = all.jobs.map((j) => j.posted_at);
@@ -37,18 +45,19 @@ const first = async (t, path) => (await t.get(path)).json();
             const remote = await first(t, '/api/v1/jobs?remote=true');
             assert.ok(remote.count > 0);
             assert.ok(remote.jobs.every((j) => j.remote === true));
+            // Remotive's board carries remote work only, so nothing is on-site.
             const onSite = await first(t, '/api/v1/jobs?remote=false');
-            assert.ok(onSite.count > 0);
-            assert.ok(onSite.jobs.every((j) => j.remote === false));
-            assert.strictEqual(remote.count + onSite.count, (await first(t, '/api/v1/jobs?limit=100')).count);
+            assert.strictEqual(onSite.count, 0);
+            const everything = (await first(t, '/api/v1/jobs?limit=100')).count;
+            assert.strictEqual(remote.count, everything);
 
             const contract = await first(t, '/api/v1/jobs?type=contract');
             assert.deepStrictEqual(contract.jobs.map((j) => j.title), ['Content Marketer']);
             assert.strictEqual(contract.facets.matches, 1, 'the count must be what the filters match');
-            assert.strictEqual(contract.facets.scope, 8, 'the type facet must not narrow its own scope');
+            assert.strictEqual(contract.facets.scope, everything, 'the type facet must not narrow its own scope');
 
             const germany = await first(t, '/api/v1/jobs?location=Germany');
-            assert.deepStrictEqual(germany.jobs.map((j) => j.title).sort(), ['Data Analyst', 'Senior Backend Engineer (Node.js)']);
+            assert.deepStrictEqual(germany.jobs.map((j) => j.title), ['Frontend Engineer <script>alert("xss")</script>']);
 
             const combined = await first(t, '/api/v1/jobs?q=engineer&remote=true');
             assert.ok(combined.count >= 1 && combined.jobs.every((j) => /engineer/i.test(j.title)));
@@ -77,9 +86,9 @@ const first = async (t, path) => (await t.get(path)).json();
             const html = (await t.get('/jobs')).text;
             assert.strictEqual((await t.get('/jobs')).status, 200);
             for (const [name, url] of [
-                ['Arbeitnow', 'https://www.arbeitnow.com/view/senior-backend-engineer-berlin-12345'],
+                ['Remotive', 'https://remotive.com/remote-jobs/software-dev/support-engineer-1900123'],
                 ['Remotive', 'https://remotive.com/remote-jobs/software-dev/platform-engineer-1900789'],
-                ['RemoteOK', 'https://remoteok.com/remote-jobs/remote-devops-engineer-skyward-1049001'],
+                ['Remotive', 'https://remotive.com/remote-jobs/marketing/content-marketer-1900456'],
             ]) {
                 assert.ok(html.includes(name), `the source ${name} is not named on the list`);
                 assert.ok(html.includes(`href="${url}"`), `the original listing ${url} is not linked on the list`);
@@ -92,28 +101,28 @@ const first = async (t, path) => (await t.get(path)).json();
         });
 
         await check('a search is an Atom feed with the same filters, and its page offers alerts through OpenVibe.Watch', async () => {
-            const r = await t.get('/jobs.atom?q=devops&remote=true');
+            const r = await t.get('/jobs.atom?q=platform&remote=true');
             assert.strictEqual(r.status, 200);
             assert.match(r.headers.get('content-type'), /^application\/atom\+xml/);
             assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=300');
             assert.match(r.text, /^<\?xml version="1\.0" encoding="utf-8"\?>\n<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom">/);
             const entries = [...r.text.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => m[1]);
             assert.strictEqual(entries.length, 1, 'only the matching listing');
-            assert.match(entries[0], /<title>DevOps Engineer at Skyward Cloud<\/title>/);
+            assert.match(entries[0], /<title>Platform Engineer at Meridian Rail<\/title>/);
             assert.match(entries[0], /<link rel="alternate" type="text\/html" href="[^"]+\/jobs\/[^"]+"\/>/);
-            assert.match(entries[0], /<author><name>RemoteOK<\/name><\/author>/);
-            assert.match(r.text, /<link rel="self" href="[^"]*\/jobs\.atom\?q=devops&amp;remote=true"\/>/);
+            assert.match(entries[0], /<author><name>Remotive<\/name><\/author>/);
+            assert.match(r.text, /<link rel="self" href="[^"]*\/jobs\.atom\?q=platform&amp;remote=true"\/>/);
             const all = await t.get('/jobs.atom');
             const ids = [...all.text.matchAll(/<updated>([^<]+)<\/updated><author>/g)].map((m) => m[1]);
             assert.ok(ids.length >= 3 && ids.join() === [...ids].sort().reverse().join(), 'every listing, newest first');
             // The page links its feed, and Get alerts opens Watch's feed form with it filled in.
-            const page = (await t.get('/jobs?q=devops&remote=true')).text;
-            assert.ok(page.includes('<link rel="alternate" type="application/atom+xml" title="Jobs “devops” remote" href="/jobs.atom?q=devops&amp;remote=true">'), 'the feed link in the head');
+            const page = (await t.get('/jobs?q=platform&remote=true')).text;
+            assert.ok(page.includes('<link rel="alternate" type="application/atom+xml" title="Jobs “platform” remote" href="/jobs.atom?q=platform&amp;remote=true">'), 'the feed link in the head');
             const alert = /href="(https:\/\/openvibe\.watch\/watches\/new\?[^"]+)">Get alerts for this search/.exec(page);
             assert.ok(alert, 'the alerts link');
             const u = new URL(alert[1].replace(/&amp;/g, '&'));
             assert.deepStrictEqual([u.searchParams.get('template'), new URL(u.searchParams.get('url')).pathname + new URL(u.searchParams.get('url')).search, u.searchParams.get('name')],
-                ['feed', '/jobs.atom?q=devops&remote=true', 'Jobs: “devops” remote']);
+                ['feed', '/jobs.atom?q=platform&remote=true', 'Jobs: “platform” remote']);
         });
 
         await check('one listing: the board\'s fields, the excerpt, the source and "read the full listing on" link', async () => {
@@ -138,19 +147,19 @@ const first = async (t, path) => (await t.get(path)).json();
         });
 
         await check('the listing page carries a valid JobPosting whose url is the original, not this page', async () => {
-            const job = (await first(t, '/api/v1/jobs?q=DevOps')).jobs[0];
+            const job = (await first(t, '/api/v1/jobs?q=Platform Engineer')).jobs[0];
             const html = (await t.get(`/jobs/${job.id}`)).text;
             assert.strictEqual((html.match(/application\/ld\+json/g) || []).length, 1, 'one JSON-LD script per page');
             const blocks = ldBlocks(html);
             const posting = blocks.find((b) => b['@type'] === 'JobPosting');
             assert.ok(posting, `no JobPosting node: ${JSON.stringify(blocks.map((b) => b['@type']))}`);
-            assert.strictEqual(posting.title, 'DevOps Engineer');
+            assert.strictEqual(posting.title, 'Platform Engineer');
             assert.strictEqual(posting.url, job.url);
             assert.notStrictEqual(posting.url, `https://openvibe.work/jobs/${job.id}`);
-            assert.strictEqual(posting.hiringOrganization.name, 'Skyward Cloud');
+            assert.strictEqual(posting.hiringOrganization.name, 'Meridian Rail');
             assert.strictEqual(posting.jobLocationType, 'TELECOMMUTE');
-            assert.match(posting.datePosted, /^2026-10-01T/);
-            assert.strictEqual(posting.identifier.name, 'remoteok');
+            assert.match(posting.datePosted, /^2026-09-29T/);
+            assert.strictEqual(posting.identifier.name, 'remotive');
             assert.ok(posting.description.length <= 320);
             assert.ok(posting['@context'] === 'https://schema.org');
             // The search page lists many listings but is not one job, so it carries no JobPosting.
@@ -188,7 +197,7 @@ const first = async (t, path) => (await t.get(path)).json();
             const api = await first(t, '/api/v1/sources');
             assert.deepStrictEqual(api.sources.map((s) => s.id).sort(), ['arbeitnow', 'hn-whoishiring', 'remoteok', 'remotive', 'weworkremotely']);
             // A board OpenVibe.Sources feeds has no read of its own here, so it is not asked for one.
-            for (const src of api.sources.filter((x) => !['weworkremotely', 'hn-whoishiring'].includes(x.id))) {
+            for (const src of api.sources.filter((x) => x.id === 'remotive')) {
                 assert.ok(src.terms.length > 40, `${src.id} has no terms`);
                 assert.match(src.terms, /link|attribute|mention|name/i, `${src.id}'s terms do not state the attribution rule`);
                 assert.strictEqual(src.last_fetch.ok, true);
@@ -228,7 +237,7 @@ const first = async (t, path) => (await t.get(path)).json();
             assert.ok(r.text.includes('Find work.'), 'the hero');
             assert.match(r.text, /action="\/jobs"/, 'the search box');
             assert.ok(r.text.includes('Latest remote jobs'));
-            assert.ok(r.text.includes('DevOps Engineer'), 'no listing on the home page');
+            assert.ok(r.text.includes('Platform Engineer'), 'no listing on the home page');
             for (const [name, url] of [['Arbeitnow', 'https://www.arbeitnow.com/'], ['Remotive', 'https://remotive.com/'], ['RemoteOK', 'https://remoteok.com/']]) {
                 assert.ok(r.text.includes(`href="${url}"`), `the source ${name} is not linked on the home page`);
             }
@@ -250,7 +259,7 @@ const first = async (t, path) => (await t.get(path)).json();
         });
 
         await check('search is limited per caller, and past it the API says so with Retry-After', async () => {
-            const busy = await boot({ callerLimits: true, limitsNow: () => Date.now(), env: { WORK_INGEST_PAGES: '1' } });
+            const busy = await boot({ callerLimits: true, limitsNow: () => Date.now() });
             try {
                 await busy.ctx.ingest.runAll();
                 let limited = null;

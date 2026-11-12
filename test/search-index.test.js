@@ -14,7 +14,7 @@ const DAY = 86_400_000;
 
 (async () => {
     const clock = { t: Date.parse('2026-10-01T06:00:00Z') };
-    const t = await boot({ now: () => clock.t, env: { WORK_INGEST_PAGES: '2' } });
+    const t = await boot({ now: () => clock.t });
     const { s, search, ingest } = t.ctx;
     const outbox = async () => (await s.db.many('SELECT envelope FROM event_outbox ORDER BY id')).map((r) => r.envelope);
     const valid = (env) => {
@@ -38,36 +38,35 @@ const DAY = 86_400_000;
             await search.sweep();   // the run's own sweep is fire-and-forget; this one waits (and shares or repeats it)
             const envs = (await outbox()).map(valid);
             const listings = await s.db.many('SELECT * FROM work_listings ORDER BY id');
-            assert.strictEqual(listings.length, 8);
-            assert.strictEqual(envs.length, 8, 'one document per listing, sent once');
+            assert.strictEqual(listings.length, 3);
+            assert.strictEqual(envs.length, 3, 'one document per listing, sent once');
             assert.ok(envs.every((e) => e.event_type === 'work.index_document.upserted'));
             const byId = new Map(envs.map((e) => [e.payload.id, e.payload]));
-            const devops = listings.find((r) => r.title.includes('DevOps'));
-            const doc = byId.get(devops.id);
-            assert.strictEqual(doc.canonical_url, `https://openvibe.work/jobs/${devops.id}`);
-            assert.strictEqual(doc.title, `${devops.title} at ${devops.company}`);
+            const platform = listings.find((r) => r.title.includes('Platform'));
+            const doc = byId.get(platform.id);
+            assert.strictEqual(doc.canonical_url, `https://openvibe.work/jobs/${platform.id}`);
+            assert.strictEqual(doc.title, `${platform.title} at ${platform.company}`);
             assert.strictEqual(doc.authorship, 'imported');
             assert.strictEqual(doc.visibility, 'public');
             assert.deepStrictEqual(doc.indexability, { decision: 'index', reasons: [] });
-            assert.strictEqual(doc.facets.source, 'remoteok');
+            assert.strictEqual(doc.facets.source, 'remotive');
             assert.strictEqual(doc.facets.remote, true);
-            assert.match(doc.title, /Skyward Cloud/);
+            assert.match(doc.title, /Meridian Rail/);
             // The snippet reads the summary and body together: the body leaves out the title, company, place and pay.
-            assert.ok(!doc.body.includes(devops.title) && !doc.body.includes('Skyward Cloud') && !doc.body.includes('$90,000'), `no repeat: ${doc.body.slice(0, 120)}`);
+            assert.ok(!doc.body.includes(platform.title) && !doc.body.includes('Meridian Rail') && !doc.body.includes('€70,000'), `no repeat: ${doc.body.slice(0, 120)}`);
             const { meta } = require('../server/render/listing');
-            assert.strictEqual(meta({ ...devops, location: 'Berlin, Berlin, Deutschland' }).location, 'Berlin, Deutschland', 'a repeated place part is said once');
-            assert.match(doc.summary, /\$90,000–\$130,000 a year/);
+            assert.strictEqual(meta({ ...platform, location: 'Berlin, Berlin, Deutschland' }).location, 'Berlin, Deutschland', 'a repeated place part is said once');
+            assert.match(doc.summary, /€70,000 – €85,000/);
             assert.deepStrictEqual(doc.provenance.map((p) => [p.service, p.type, p.label, p.url]),
-                [['work', 'board_listing', 'RemoteOK', devops.url]], 'the board and the original listing travel with it');
-            assert.ok(!JSON.stringify(envs).includes('personal use'), 'RemoteOK\'s legal notice is not a document');
+                [['work', 'board_listing', 'Remotive', platform.url]], 'the board and the original listing travel with it');
         });
 
         await check('a second sweep sends nothing; a changed listing is sent again at the next revision', async () => {
             const before = (await outbox()).length;
             const again = await search.sweep();
-            assert.deepStrictEqual(again.job, { seen: 8, sent: 0, removed: 0, failed: 0 });
+            assert.deepStrictEqual(again.job, { seen: 3, sent: 0, removed: 0, failed: 0 });
             assert.strictEqual((await outbox()).length, before);
-            const one = await s.db.one("SELECT * FROM work_listings WHERE source = 'arbeitnow' ORDER BY id LIMIT 1");
+            const one = await s.db.one("SELECT * FROM work_listings WHERE source = 'remotive' ORDER BY id LIMIT 1");
             await s.db.exec('UPDATE work_listings SET salary = $1 WHERE id = $2', ['€70,000 a year', one.id]);
             const res = await search.sweep();
             assert.strictEqual(res.job.sent, 1);
@@ -78,7 +77,7 @@ const DAY = 86_400_000;
         });
 
         await check('a listing that expires (its page answers 404) becomes a tombstone, once', async () => {
-            const one = await s.db.one("SELECT * FROM work_listings WHERE source = 'remotive' ORDER BY id LIMIT 1");
+            const one = await s.db.one("SELECT * FROM work_listings WHERE source = 'remotive' ORDER BY id DESC LIMIT 1");
             await s.db.exec('UPDATE work_listings SET expired = true WHERE id = $1', [one.id]);
             assert.strictEqual((await t.get(`/jobs/${one.id}`)).status, 404);
             const res = await search.sweep();
@@ -88,7 +87,7 @@ const DAY = 86_400_000;
             assert.deepStrictEqual(last.payload, { type: 'job', id: one.id, revision: 2 });
             assert.strictEqual((await search.sweep()).job.sent, 0, 'a tombstone is not re-sent');
             // A row deleted outright is tombstoned too (exists()).
-            const gone = await s.db.one("SELECT * FROM work_listings WHERE source = 'arbeitnow' AND expired = false ORDER BY id DESC LIMIT 1");
+            const gone = await s.db.one("SELECT * FROM work_listings WHERE source = 'remotive' AND expired = false ORDER BY id DESC LIMIT 1");
             await s.db.exec('DELETE FROM work_listings WHERE id = $1', [gone.id]);
             assert.strictEqual((await search.sweep()).job.removed, 1);
         });

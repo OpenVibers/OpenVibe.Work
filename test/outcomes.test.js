@@ -32,10 +32,17 @@ const cardOf = (html, id) => {
 };
 
 (async () => {
-    const t = await boot({ env: { WORK_INGEST_PAGES: '2', WORK_DISCLOSURE_SAMPLE: '100' } });
+    const t = await boot({ env: { WORK_DISCLOSURE_SAMPLE: '100' } });
     const kim = t.network.addUser('kim');
     const SAME = { 'sec-fetch-site': 'same-origin' };
     try {
+        // A second listing with two types in the board's own words, so both kinds are on the page.
+        t.boards.add('remotive', {
+            id: 1900960, url: 'https://remotive.com/remote-jobs/software-dev/frontend-engineer-1900960',
+            title: 'Frontend Engineer', company_name: 'Helles Werk', category: 'Software Development', tags: ['typescript', 'css'],
+            job_type: 'permanent, full_time', publication_date: '2026-10-01T10:00:00',
+            candidate_required_location: 'Remote (EU)', salary: '', description: '<p>Build the design system.</p>',
+        });
         await t.ctx.ingest.runAll();
 
         await check('outcome 1: the salary as the board wrote it, or that the board wrote none', async () => {
@@ -77,7 +84,7 @@ const cardOf = (html, id) => {
             assert.ok(page.includes(`Of the last ${expected.n} listings we fetched, ${expected.salaried} included a salary (${pct}%)`),
                 'the disclosure rate is not the one the database gives');
             // The sample size is configuration, not a literal on the page: with a smaller sample the line follows.
-            const small = await boot({ env: { WORK_INGEST_PAGES: '2', WORK_DISCLOSURE_SAMPLE: '3' } });
+            const small = await boot({ env: { WORK_DISCLOSURE_SAMPLE: '3' } });
             try {
                 await small.ctx.ingest.runAll();
                 const want = await small.ctx.s.db.one(

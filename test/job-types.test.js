@@ -71,21 +71,22 @@ const jobTypes = require('../server/jobs/job-types');
         assert.strictEqual(jobTypes.canonicalKey(''), null);
     });
 
-    const t = await boot({ env: { WORK_INGEST_PAGES: '2' } });
+    const t = await boot();
     try {
         await t.ctx.ingest.runAll();
         // Two listings in the boards' own words: a German one and a French one.
-        t.boards.add('arbeitnow', {
-            slug: 'support-werkstudent-berlin',
-            company_name: 'Nordlicht Systems',
+        t.boards.add('remotive', {
+            id: 1900950,
+            url: 'https://remotive.com/remote-jobs/support/support-werkstudent-1900950',
             title: 'Support Werkstudent',
-            description: '<p>Support in Berlin.</p>',
-            remote: false,
-            url: 'https://www.arbeitnow.com/view/support-werkstudent-berlin-45678',
+            company_name: 'Nordlicht Systems',
+            category: 'Customer Support',
             tags: ['support'],
-            job_types: ['Werkstudent', 'hilfstätigkeit'],
-            location: 'Berlin, Germany',
-            created_at: 1791800000,
+            job_type: 'Werkstudent',
+            publication_date: '2026-10-02T09:00:00',
+            candidate_required_location: 'Berlin, Germany',
+            salary: '',
+            description: '<p>Support in Berlin.</p>',
         });
         t.boards.add('remotive', {
             id: 1900900, url: 'https://remotive.com/remote-jobs/other/consultant-cdi-1900900',
@@ -124,7 +125,7 @@ const jobTypes = require('../server/jobs/job-types');
             assert.ok(partTime.jobs.some((j) => /Support Werkstudent/.test(j.title)), 'the German listing is not part time');
             // And it is counted under both.
             const fullTime = (await t.get('/api/v1/jobs?type=full-time')).json();
-            assert.ok(fullTime.jobs.some((j) => /Frontend Engineer/.test(j.title)));
+            assert.ok(fullTime.jobs.some((j) => /Platform Engineer/.test(j.title)));
         });
 
         await check('a type in a board\'s own words still works, as the plain search it always was', async () => {

@@ -18,7 +18,7 @@ const companies = require('../server/jobs/companies');
         assert.strictEqual(companies.slugOf('x'.repeat(200)).length, 80);
     });
 
-    const t = await boot({ env: { WORK_INGEST_PAGES: '2' } });
+    const t = await boot();
     try {
         await t.ctx.ingest.runAll();
         const s = t.ctx.s;
