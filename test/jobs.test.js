@@ -259,7 +259,10 @@ const first = async (t, path) => (await t.get(path)).json();
         });
 
         await check('search is limited per caller, and past it the API says so with Retry-After', async () => {
-            const busy = await boot({ callerLimits: true, limitsNow: () => Date.now() });
+            // A fixed clock: on the real one a run that crosses a minute boundary starts a fresh budget and the
+            // 61st search never sees 60 in one minute.
+            const clock = Date.UTC(2026, 8, 27, 12, 0, 15);
+            const busy = await boot({ callerLimits: true, limitsNow: () => clock });
             try {
                 await busy.ctx.ingest.runAll();
                 let limited = null;
