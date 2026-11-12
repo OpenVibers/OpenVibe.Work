@@ -23,8 +23,8 @@ const BUDGETS = {
     jsRawKB: 394.5, // 2026-11-10: openvibe-shared 4.197.0 (the menu's row of places, the You tab's row, the Sign in mark, the tooltip); 393: measured 392.5 KB raw with openvibe-shared 4.190.0 (2026-11-10: the site name's dropdown, the footer's online strip, the balances pill); 376.4: measured 376.3 KB raw with openvibe-shared 4.186.0 (2026-11-10: the mark's Working and Thinking states, the Dock and the menu as one sheet, bare controls styled by the loader); 375.1: measured 367.1 with openvibe-shared 4.161.0, plus room for 4.162.0–4.163.0, 2026-11-09
     jsBrotliKB: 94, // 94: measured 93.7 KB brotli with openvibe-shared 4.190.0 (2026-11-10: the site name's dropdown, the footer's online strip, the balances pill); 89.8: measured 89.7 KB brotli with openvibe-shared 4.186.0 (2026-11-10: the mark's Working and Thinking states, the Dock and the menu as one sheet, bare controls styled by the loader); 89.5: measured 87.5 with openvibe-shared 4.163.0, plus room for 4.162.0–4.163.0, 2026-11-09
     cssFiles: 3,   // 3 (app.css, the cached /shared/showcase.css and css/home.css, the curated home's counts, fields, cities, companies and questions, 2026-10-22)
-    cssRawKB: 53.7, // 53.7: measured 48.7 with openvibe-shared 4.161.0, plus room for 4.162.0–4.163.0, 2026-11-09
-    cssBrotliKB: 11.4, // 11.3 with the home's picture (the newest listing as a stack of cards), 2026-11-10; before: 10.4 with 2026-11-01: phone table cards (+1.3 KB raw) (2026-11-01); raised from 10 on 2026-10-31, with the measured page: 45.6 KB raw / 10.1
+    cssRawKB: 60.5, // 60.5 openvibe-shared v4.228.0 (2026-11-12: measured 60.2, raised by pin-bump from 53.7); 53.7: measured 48.7 with openvibe-shared 4.161.0, plus room for 4.162.0–4.163.0, 2026-11-09
+    cssBrotliKB: 11.5, // 11.5 openvibe-shared v4.228.0 (2026-11-12: measured 11.5, raised by pin-bump from 11.4); 11.3 with the home's picture (the newest listing as a stack of cards), 2026-11-10; before: 10.4 with 2026-11-01: phone table cards (+1.3 KB raw) (2026-11-01); raised from 10 on 2026-10-31, with the measured page: 45.6 KB raw / 10.1
     externalFiles: 0,   // 0
 };
 
