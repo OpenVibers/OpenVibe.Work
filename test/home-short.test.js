@@ -29,13 +29,14 @@ const { boot, check, done } = require('./helpers/boot');
         assert.strictEqual(r.status, 200, r.text.slice(0, 300));
         const home = r.text;
         assert.match(home, /<div class="pick" id="pick-browse">/, 'the browse block is on the home');
-        assert.match(home, /<nav class="pick-row" aria-label="Browse the listings">/, 'the chips are on the home');
+        assert.match(home, /<div class="ov-parts ov-parts--front" data-parts="\d+">/, 'its sections are tabs on a phone (Shared pick(), 11-12)');
+        assert.ok(home.includes('id="ovp-browse-pp-browse-latest" value="pp-browse-latest" checked>'), 'the newest listings are the tab a phone opens');
         // One chip per section, in the order the sections have, and the newest listings are the one a phone shows.
-        const chips = [...home.matchAll(/<a class="pick-chip" href="#(?:pp-browse-)?([a-z]+)">()[^<]+<\/a>/g)];
+        const chips = [...home.matchAll(/<label for="ovp-[a-z0-9]+-(?:pp-browse-)?([a-z]+)">()[^<]+(?: <span class="ov-parts-n">[^<]*<\/span>)?<\/label>/g)];
         const panes = [...home.matchAll(/<div class="pick-pane" id="pp-browse-([a-z]+)">/g)].map((m) => m[1]);
         assert.ok(panes.length >= 3, `the sections are all in the page (${panes.length})`);
         assert.deepStrictEqual(chips.map((m) => m[1]), panes, 'one chip per section, in the same order');
-        assert.ok(!/type="radio"/.test(home), 'no chip is a radio: nothing is picked, every pane shows');
+        assert.ok(/<input type=\"radio\" class=\"ov-parts-r\"[^>]* checked>/.test(home), 'the first part is open on a phone (Shared pick(): tabs, 11-12)');
         // The sections themselves are in the page, not removed.
         for (const h of ['Browse by field', 'Jobs by city', 'Latest remote jobs', 'Newest jobs that state the pay', 'Companies with the most openings']) {
             assert.ok(home.includes(`>${h}</h2>`), `${h} is in the page`);
