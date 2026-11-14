@@ -574,7 +574,7 @@ ${assisted && a.actor_task_id ? notice(html`Your agent is on it: <a href="${conf
 ${a.actor_task_id ? html`<p class="small">Latest task: <a href="${config.actor.publicUrl}/tasks/${a.actor_task_id}">open it on OpenVibe.Actor</a>${a.assists > 1 ? html` (${a.assists} asked so far)` : ''}.</p>` : ''}
 </section>
 <section class="app-panel" aria-labelledby="h-history"><h2 id="h-history">History</h2>
-${events.length ? html`<ul class="app-history">${events.map((e) => html`<li>${time(e.at)} · ${STATUS_LABEL[e.from_status] || e.from_status} → ${STATUS_LABEL[e.to_status] || e.to_status}</li>`)}</ul>` : html`<p class="muted small">No status changes yet. Added ${time(a.created_at)}.</p>`}
+${events.length ? html`<ul class="app-history">${events.map((e) => html`<li>${time(e.at)} · from ${STATUS_LABEL[e.from_status] || e.from_status} to ${STATUS_LABEL[e.to_status] || e.to_status}</li>`)}</ul>` : html`<p class="muted small">No status changes yet. Added ${time(a.created_at)}.</p>`}
 </section>
 <form class="app-danger" method="post" action="/applications/${a.id}/delete"><button type="submit">Delete this application</button></form>
 </div>
@@ -759,7 +759,7 @@ ${sources.SOURCES.map((src) => {
     r.get('/docs', (req, res) => {
         const b = config.baseUrl;
         const search = `curl -s '${b}/api/v1/jobs?q=engineer&remote=true'
-# → { "jobs": [ { "id": "job_…", "title": "…", "company": "…", "url": "https://…", "source": "remotive", "source_name": "Remotive", "posted_at": "…", "excerpt": "…" } ], "next": null, "facets": { … } }`;
+# returns { "jobs": [ { "id": "job_…", "title": "…", "company": "…", "url": "https://…", "source": "remotive", "source_name": "Remotive", "posted_at": "…", "excerpt": "…" } ], "next": null, "facets": { … } }`;
         page(req, res, {
             index: true, cache: PUBLIC_CACHE,
             title: 'API',
