@@ -57,7 +57,7 @@ const { boot, check, done } = require('./helpers/boot');
         }
         // The parts themselves are in the page, not removed.
         assert.match(home, /<div class="home-faq">/, 'the questions are in the page');
-        assert.match(home, /class="sc-net"/, 'the rest of OpenVibe is in the page');
+        assert.match(home, /class="sc-net"|class="sc-onenet-list"/, 'the rest of OpenVibe is in the page ("One account. N sites." since openvibe-shared 4.256.0)');
         assert.match(home, /data-ov-shipped="list"/, 'what shipped is in the page');
         // there is room.
         const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'home.css'), 'utf8');
