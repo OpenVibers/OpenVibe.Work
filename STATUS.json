@@ -8,11 +8,11 @@
   "port": "4960",
   "domain": "openvibe.work",
   "contracts": "openvibe-contracts v0.419.0",
-  "sdk": "openvibe-sdk v0.167.0",
+  "sdk": "openvibe-sdk v0.168.0",
   "shared": "openvibe-shared v4.247.0",
   "packages": [
     "openvibe-contracts v0.419.0",
-    "openvibe-sdk v0.167.0",
+    "openvibe-sdk v0.168.0",
     "openvibe-shared v4.247.0",
     "openvibe-publishing v1.7.0"
   ],
@@ -54,5 +54,5 @@
     "deploy files"
   ],
   "deployment": "openvibe-ovh: unit openvibe-work.service on 127.0.0.1:4960 (git checkout /opt/openvibe.work, env /etc/openvibe/work.env, database ov_work), deployed with `sudo ovhost deploy work`; public at https://openvibe.work since 2026-10-08.",
-  "updated": "2026-11-13"
+  "updated": "2026-11-14"
 }
