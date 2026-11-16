@@ -95,7 +95,7 @@ Its own PostgreSQL tables, created by [migrations/](migrations/) and written by 
   and Hacker News "Who is hiring" arrive through OpenVibe.Sources (`server/ingest/from-sources.js`).
 - **PostgreSQL** (`DATABASE_URL`, `DATABASE_DIRECT_URL`; an embedded PGlite database in development via
   `WORK_PGLITE_DIR`) and **Valkey** for shared limit counters (`VALKEY_URL`, `VALKEY_PREFIX`).
-- **Packages**: `openvibe-contracts` v0.289.1, `openvibe-sdk` v0.174.0 (`db`, `auth`, `account-data`, `limits`,
+- **Packages**: `openvibe-contracts` v0.289.1, `openvibe-sdk` v0.177.0 (`db`, `auth`, `account-data`, `limits`,
   `valkey`, `service`) and `openvibe-shared` v4.179.0 (`frame`, `legal`, `serve`, `release`, `metrics`, `ready`,
   `seo`, `shell`, `cache-policy`, `showcase`, `app-icon`).
 
