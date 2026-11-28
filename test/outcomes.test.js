@@ -165,7 +165,7 @@ const cardOf = (html, id) => {
             const page = (await t.get('/saved', { as: kim })).text;
             assert.ok(page.includes('“engineer”'), 'the saved search does not say what it looks for');
             assert.ok(page.includes('remote'), 'the saved search does not say what it looks for');
-            assert.match(page, /last ran <time datetime="[^"]+">/, 'the saved search does not say when it last ran');
+            assert.match(page, /last ran <time datetime="[^"]+"[^>]*>/, 'the saved search does not say when it last ran');
             assert.ok(page.includes('Alerts for a search come from OpenVibe.Watch, on the same account.'), 'the alerts are not said to come from Watch on the same account');
             assert.ok(page.includes('openvibe.watch'), 'there is no link to Watch');
             // And the search it keeps is the search it runs.
